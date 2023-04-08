@@ -199,7 +199,7 @@ const Serde_TypeParams Model1_FMT[] = {
     SERDE_TYPE_PARAMS(Serde_Type_Array_Char, 10, 0),
     SERDE_TYPE_PARAMS(Serde_Type_Primary_UInt32, 0, 0),
     SERDE_TYPE_PARAMS(Serde_Type_PointerArray_Char, 4, 0),
-    //SERDE_TYPE_PARAMS(Serde_Type_2DArray_Char, 4, 32),
+    SERDE_TYPE_PARAMS(Serde_Type_2DArray_Char, 4, 32),
 };
 const uint8_t Model1_FMT_Len = sizeof(Model1_FMT) / sizeof(Model1_FMT[0]);
 
@@ -211,7 +211,7 @@ Test_Result Test_Serielize(void) {
     addressMap[1] = &temp1.V1;
     addressMap[2] = &temp1.V2;
     addressMap[3] = &temp1.V3;
-    //addressMap[4] = &temp1.V4;
+    addressMap[4] = &temp1.V4;
     Serde_serialize(NULL, Model1_FMT, Model1_FMT_Len, &temp1, SERIALIZE);
 
     return 0;
