@@ -156,9 +156,20 @@ typedef struct {
     Serde_MoveAddressFn     moveAddress;
 } Serde_Type_Helper;
 
+typedef struct {
+    Serde_LenType               Len;
+    Serde_LenType               Len2;
+    union {
+        Serde_Type              Type;
+        Serde_Type_BitFields    Fields;
+    };
+} Serde_TypeParams;
+
+#define SERDE_TYPE_PARAMS(TY, LEN, LEN2)           { .Len = LEN, .Len2 = LEN2, .Type = TY }
 
 void Serde_serializePrimary(void* out, const uint8_t* fmt, void* obj, Serde_SerializeFn* serialize);
 
+void Serde_serialize(void* out, const Serde_TypeParams* fmt, Serde_LenType len, void* obj, Serde_SerializeFn* serialize);
 
 #ifdef __cplusplus
 };
