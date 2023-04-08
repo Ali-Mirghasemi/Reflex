@@ -104,4 +104,23 @@ void Serde_serializePrimary(void* out, const uint8_t* fmt, void* obj, Serde_Seri
     }
 }
 
+void Serde_serialize(void* out, const Serde_TypeParams* fmt, Serde_LenType len, void* obj, Serde_SerializeFn* serialize) {
+    uint8_t* pobj = (uint8_t*) obj;
+    Serde_Type_Helper* helper;
+
+    while (len-- > 0) {
+        helper = &SERDE_HELPER[fmt->Fields.Category];
+        // check align
+        pobj = helper->alignAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+        // serialize
+        if (*serialize != NULL) {
+            (*serialize)(out, pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+        }
+        serialize++;
+        // move pobj
+        pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+        // next fmt
+        fmt++;
+    }
+}
 
