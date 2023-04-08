@@ -21,9 +21,11 @@ void Result_print(Test_Result result);
 
 
 Test_Result Test_Primary_Serielize(void);
+Test_Result Test_Serielize(void);
 
 const Test_Fn Tests[] = {
     Test_Primary_Serielize,
+    Test_Serielize,
 };
 const uint32_t Tests_Len = sizeof(Tests) / sizeof(Tests[0]);
 
@@ -181,6 +183,36 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[10] = &temp4.V10;
     addressMap[11] = &temp4.V11;
     Serde_serializePrimary(NULL, PrimaryTemp4_FMT, &temp4, SERIALIZE);
+
+    return 0;
+}
+// ----------------------------- Test Serielize ---------------------
+typedef struct {
+    uint8_t*        V0;
+    char            V1[10];
+    uint32_t        V2;
+    char*           V3[4];
+    char            V4[4][32];
+} Model1;
+const Serde_TypeParams Model1_FMT[] = {
+    SERDE_TYPE_PARAMS(Serde_Type_Pointer_UInt8, 0, 0),
+    SERDE_TYPE_PARAMS(Serde_Type_Array_Char, 10, 0),
+    SERDE_TYPE_PARAMS(Serde_Type_Primary_UInt32, 0, 0),
+    SERDE_TYPE_PARAMS(Serde_Type_PointerArray_Char, 4, 0),
+    //SERDE_TYPE_PARAMS(Serde_Type_2DArray_Char, 4, 32),
+};
+const uint8_t Model1_FMT_Len = sizeof(Model1_FMT) / sizeof(Model1_FMT[0]);
+
+Test_Result Test_Serielize(void) {
+    Model1 temp1;
+
+    addressMapIndex = 0;
+    addressMap[0] = &temp1.V0;
+    addressMap[1] = &temp1.V1;
+    addressMap[2] = &temp1.V2;
+    addressMap[3] = &temp1.V3;
+    //addressMap[4] = &temp1.V4;
+    Serde_serialize(NULL, Model1_FMT, Model1_FMT_Len, &temp1, SERIALIZE);
 
     return 0;
 }
