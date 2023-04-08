@@ -45,11 +45,27 @@ static void* Serde_Pointer_moveAddress(void* pValue, Serde_Type type, Serde_LenT
     return (uint8_t*) pValue + objSize;
 }
 
+static void* Serde_Array_alignAddress(void* pValue, Serde_Type type, Serde_LenType len, Serde_LenType len2) {
+    uint8_t objSize = PRIMARY_TYPE_SIZE[type & SERDE_TYPE_PRIMARY_MASK];
+    uint32_t pobj = (uint8_t*) pValue;
+
+    if (pobj % objSize != 0) {
+        pobj += objSize - pobj % objSize;
+    }
+
+    return (void*) pobj;
+}
+static void* Serde_Array_moveAddress(void* pValue, Serde_Type type, Serde_LenType len, Serde_LenType len2) {
+    uint8_t objSize = PRIMARY_TYPE_SIZE[type & SERDE_TYPE_PRIMARY_MASK] * len;
+    return (uint8_t*) pValue + objSize;
+}
+
 #define SERDE_HELPER(CAT)           { Serde_ ##CAT ##_alignAddress, Serde_ ##CAT ##_moveAddress }
 
 static const Serde_Type_Helper SERDE_HELPER[Serde_Category_Length] = {
     SERDE_HELPER(Primary),
     SERDE_HELPER(Pointer),
+    SERDE_HELPER(Array),
 };
 
 void Serde_serializePrimary(void* out, const uint8_t* fmt, void* obj, Serde_SerializeFn* serialize) {
