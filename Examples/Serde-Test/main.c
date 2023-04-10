@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "Serde.h"
+#include "Reflex.h"
 
 #define PRINTLN						puts
 #define PRINTF						printf
@@ -53,26 +53,26 @@ int main()
 void*       addressMap[12] = {0};
 uint8_t     addressMapIndex = 0;
 
-void Serde_checkAddress(void* out, void* value, Serde_Type type, Serde_LenType len, Serde_LenType len2) {
+void Reflex_checkAddress(void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
     if (addressMap[addressMapIndex] != value) {
         PRINTF("Address not match: %X != %X\n", addressMap[addressMapIndex], value);
     }
     addressMapIndex++;
 }
 
-const Serde_SerializeFn SERIALIZE[] = {
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
-    Serde_checkAddress,
+const Reflex_SerializeFn SERIALIZE[] = {
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
+    Reflex_checkAddress,
 };
 
 typedef struct {
@@ -81,10 +81,10 @@ typedef struct {
     uint8_t     Z;
 } PrimaryTemp1;
 const uint8_t PrimaryTemp1_FMT[] = {
-    Serde_Type_Primary_UInt32,
-    Serde_Type_Primary_Float,
-    Serde_Type_Primary_UInt8,
-    Serde_Type_Unknown,
+    Reflex_Type_Primary_UInt32,
+    Reflex_Type_Primary_Float,
+    Reflex_Type_Primary_UInt8,
+    Reflex_Type_Unknown,
 };
 
 typedef struct {
@@ -93,10 +93,10 @@ typedef struct {
     uint8_t     Z;
 } PrimaryTemp2;
 const uint8_t PrimaryTemp2_FMT[] = {
-    Serde_Type_Primary_UInt16,
-    Serde_Type_Primary_Float,
-    Serde_Type_Primary_UInt8,
-    Serde_Type_Unknown,
+    Reflex_Type_Primary_UInt16,
+    Reflex_Type_Primary_Float,
+    Reflex_Type_Primary_UInt8,
+    Reflex_Type_Unknown,
 };
 
 typedef struct {
@@ -106,11 +106,11 @@ typedef struct {
     uint8_t     D;
 } PrimaryTemp3;
 const uint8_t PrimaryTemp3_FMT[] = {
-    Serde_Type_Primary_UInt16,
-    Serde_Type_Primary_Float,
-    Serde_Type_Primary_UInt8,
-    Serde_Type_Primary_UInt8,
-    Serde_Type_Unknown,
+    Reflex_Type_Primary_UInt16,
+    Reflex_Type_Primary_Float,
+    Reflex_Type_Primary_UInt8,
+    Reflex_Type_Primary_UInt8,
+    Reflex_Type_Unknown,
 };
 
 typedef struct {
@@ -128,19 +128,19 @@ typedef struct {
     uint32_t        V11;
 } PrimaryTemp4;
 const uint8_t PrimaryTemp4_FMT[] = {
-    Serde_Type_Primary_UInt8,
-    Serde_Type_Primary_UInt32,
-    Serde_Type_Primary_UInt16,
-    Serde_Type_Primary_Int16,
-    Serde_Type_Primary_Int8,
-    Serde_Type_Primary_Int64,
-    Serde_Type_Primary_UInt64,
-    Serde_Type_Primary_Float,
-    Serde_Type_Primary_Double,
-    Serde_Type_Primary_UInt8,
-    Serde_Type_Primary_UInt16,
-    Serde_Type_Primary_UInt32,
-    Serde_Type_Unknown,
+    Reflex_Type_Primary_UInt8,
+    Reflex_Type_Primary_UInt32,
+    Reflex_Type_Primary_UInt16,
+    Reflex_Type_Primary_Int16,
+    Reflex_Type_Primary_Int8,
+    Reflex_Type_Primary_Int64,
+    Reflex_Type_Primary_UInt64,
+    Reflex_Type_Primary_Float,
+    Reflex_Type_Primary_Double,
+    Reflex_Type_Primary_UInt8,
+    Reflex_Type_Primary_UInt16,
+    Reflex_Type_Primary_UInt32,
+    Reflex_Type_Unknown,
 };
 
 
@@ -154,20 +154,20 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[0] = &temp1.X;
     addressMap[1] = &temp1.Y;
     addressMap[2] = &temp1.Z;
-    Serde_serializePrimary(NULL, PrimaryTemp1_FMT, &temp1, SERIALIZE);
+    Reflex_serializePrimary(NULL, PrimaryTemp1_FMT, &temp1, SERIALIZE);
 
     addressMapIndex = 0;
     addressMap[0] = &temp2.X;
     addressMap[1] = &temp2.Y;
     addressMap[2] = &temp2.Z;
-    Serde_serializePrimary(NULL, PrimaryTemp2_FMT, &temp2, SERIALIZE);
+    Reflex_serializePrimary(NULL, PrimaryTemp2_FMT, &temp2, SERIALIZE);
 
     addressMapIndex = 0;
     addressMap[0] = &temp3.A;
     addressMap[1] = &temp3.B;
     addressMap[2] = &temp3.C;
     addressMap[3] = &temp3.D;
-    Serde_serializePrimary(NULL, PrimaryTemp3_FMT, &temp3, SERIALIZE);
+    Reflex_serializePrimary(NULL, PrimaryTemp3_FMT, &temp3, SERIALIZE);
 
     addressMapIndex = 0;
     addressMap[0] = &temp4.V0;
@@ -182,7 +182,7 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[9] = &temp4.V9;
     addressMap[10] = &temp4.V10;
     addressMap[11] = &temp4.V11;
-    Serde_serializePrimary(NULL, PrimaryTemp4_FMT, &temp4, SERIALIZE);
+    Reflex_serializePrimary(NULL, PrimaryTemp4_FMT, &temp4, SERIALIZE);
 
     return 0;
 }
@@ -194,12 +194,12 @@ typedef struct {
     char*           V3[4];
     char            V4[4][32];
 } Model1;
-const Serde_TypeParams Model1_FMT[] = {
-    SERDE_TYPE_PARAMS(Serde_Type_Pointer_UInt8, 0, 0),
-    SERDE_TYPE_PARAMS(Serde_Type_Array_Char, 10, 0),
-    SERDE_TYPE_PARAMS(Serde_Type_Primary_UInt32, 0, 0),
-    SERDE_TYPE_PARAMS(Serde_Type_PointerArray_Char, 4, 0),
-    SERDE_TYPE_PARAMS(Serde_Type_2DArray_Char, 4, 32),
+const Reflex_TypeParams Model1_FMT[] = {
+    REFLEX_TYPE_PARAMS(Reflex_Type_Pointer_UInt8, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 10, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt32, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_2DArray_Char, 4, 32),
 };
 const uint8_t Model1_FMT_Len = sizeof(Model1_FMT) / sizeof(Model1_FMT[0]);
 
@@ -212,7 +212,7 @@ Test_Result Test_Serielize(void) {
     addressMap[2] = &temp1.V2;
     addressMap[3] = &temp1.V3;
     addressMap[4] = &temp1.V4;
-    Serde_serialize(NULL, Model1_FMT, Model1_FMT_Len, &temp1, SERIALIZE);
+    Reflex_serialize(NULL, Model1_FMT, Model1_FMT_Len, &temp1, SERIALIZE);
 
     return 0;
 }
