@@ -32,6 +32,10 @@ typedef int16_t Reflex_LenType;
 
 /********************************************************************************************/
 
+/* Pre-Defined data types */
+struct __Reflex;
+typedef struct __Reflex Reflex;
+
 /**
  * @brief supported param categories
  */
@@ -144,7 +148,7 @@ typedef union {
     };
 } Reflex_Type_BitFields;
 
-typedef void (*Reflex_SerializeFn)(void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
+typedef void (*Reflex_SerializeFn)(Reflex* reflex, void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
 
 typedef void* (*Reflex_AlignAddressFn)(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
 typedef void* (*Reflex_MoveAddressFn)(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
@@ -167,9 +171,24 @@ typedef struct {
 
 #define REFLEX_TYPE_PARAMS(TY, LEN, LEN2)           { .Len = LEN, .Len2 = LEN2, .Type = TY }
 
-void Reflex_serializePrimary(void* out, const uint8_t* fmt, void* obj, Reflex_SerializeFn* serialize);
+struct __Reflex {
+    void*                           Args;
+    void*                           Buffer;
+    union {
+        const uint8_t*              PrimaryFmt;
+        const Reflex_TypeParams*    Fmt;
+    };
+    union {
+        const Reflex_SerializeFn*   SerializeFunctions;
+        Reflex_SerializeFn          Serialize;
+    };
+    Reflex_LenType                  VariablesLength;
+    uint8_t                         RepeatFn;
+};
 
-void Reflex_serialize(void* out, const Reflex_TypeParams* fmt, Reflex_LenType len, void* obj, Reflex_SerializeFn* serialize);
+void Reflex_scanPrimary(Reflex* reflex, void* obj);
+
+void Reflex_scan(Reflex* reflex, void* obj);
 
 #ifdef __cplusplus
 };
