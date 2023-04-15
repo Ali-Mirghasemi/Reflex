@@ -53,7 +53,7 @@ int main()
 void*       addressMap[12] = {0};
 uint8_t     addressMapIndex = 0;
 
-void Reflex_checkAddress(void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
+void Reflex_checkAddress(Reflex* reflex, void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
     if (addressMap[addressMapIndex] != value) {
         PRINTF("Address not match: %X != %X\n", addressMap[addressMapIndex], value);
     }
@@ -61,17 +61,6 @@ void Reflex_checkAddress(void* out, void* value, Reflex_Type type, Reflex_LenTyp
 }
 
 const Reflex_SerializeFn SERIALIZE[] = {
-    Reflex_checkAddress,
-    Reflex_checkAddress,
-    Reflex_checkAddress,
-    Reflex_checkAddress,
-    Reflex_checkAddress,
-    Reflex_checkAddress,
-    Reflex_checkAddress,
-    Reflex_checkAddress,
-    Reflex_checkAddress,
-    Reflex_checkAddress,
-    Reflex_checkAddress,
     Reflex_checkAddress,
 };
 
@@ -145,29 +134,37 @@ const uint8_t PrimaryTemp4_FMT[] = {
 
 
 Test_Result Test_Primary_Serielize(void) {
+    Reflex reflex = {0};
+
     PrimaryTemp1 temp1;
     PrimaryTemp2 temp2;
     PrimaryTemp3 temp3;
     PrimaryTemp4 temp4;
 
+    reflex.Serialize = SERIALIZE;
+    reflex.RepeatFn = 1;
+
     addressMapIndex = 0;
     addressMap[0] = &temp1.X;
     addressMap[1] = &temp1.Y;
     addressMap[2] = &temp1.Z;
-    Reflex_serializePrimary(NULL, PrimaryTemp1_FMT, &temp1, SERIALIZE);
+    reflex.PrimaryFmt = PrimaryTemp1_FMT;
+    Reflex_scanPrimary(&reflex, &temp1);
 
     addressMapIndex = 0;
     addressMap[0] = &temp2.X;
     addressMap[1] = &temp2.Y;
     addressMap[2] = &temp2.Z;
-    Reflex_serializePrimary(NULL, PrimaryTemp2_FMT, &temp2, SERIALIZE);
+    reflex.PrimaryFmt = PrimaryTemp2_FMT;
+    Reflex_scanPrimary(&reflex, &temp2);
 
     addressMapIndex = 0;
     addressMap[0] = &temp3.A;
     addressMap[1] = &temp3.B;
     addressMap[2] = &temp3.C;
     addressMap[3] = &temp3.D;
-    Reflex_serializePrimary(NULL, PrimaryTemp3_FMT, &temp3, SERIALIZE);
+    reflex.PrimaryFmt = PrimaryTemp3_FMT;
+    Reflex_scanPrimary(&reflex, &temp3);
 
     addressMapIndex = 0;
     addressMap[0] = &temp4.V0;
@@ -182,7 +179,8 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[9] = &temp4.V9;
     addressMap[10] = &temp4.V10;
     addressMap[11] = &temp4.V11;
-    Reflex_serializePrimary(NULL, PrimaryTemp4_FMT, &temp4, SERIALIZE);
+    reflex.PrimaryFmt = PrimaryTemp4_FMT;
+    Reflex_scanPrimary(&reflex, &temp4);
 
     return 0;
 }
@@ -204,7 +202,11 @@ const Reflex_TypeParams Model1_FMT[] = {
 const uint8_t Model1_FMT_Len = sizeof(Model1_FMT) / sizeof(Model1_FMT[0]);
 
 Test_Result Test_Serielize(void) {
+    Reflex reflex;
     Model1 temp1;
+
+    reflex.Serialize = SERIALIZE;
+    reflex.RepeatFn = 1;
 
     addressMapIndex = 0;
     addressMap[0] = &temp1.V0;
@@ -212,7 +214,9 @@ Test_Result Test_Serielize(void) {
     addressMap[2] = &temp1.V2;
     addressMap[3] = &temp1.V3;
     addressMap[4] = &temp1.V4;
-    Reflex_serialize(NULL, Model1_FMT, Model1_FMT_Len, &temp1, SERIALIZE);
+    reflex.Fmt = Model1_FMT;
+    reflex.VariablesLength = Model1_FMT_Len;
+    Reflex_scan(&reflex, &temp1);
 
     return 0;
 }
