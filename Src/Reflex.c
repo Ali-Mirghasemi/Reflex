@@ -100,10 +100,13 @@ static const Reflex_Type_Helper REFLEX_HELPER[Reflex_Category_Length] = {
     REFLEX_HELPER(2DArray),
 };
 
-void Reflex_serializePrimary(void* out, const uint8_t* fmt, void* obj, Reflex_SerializeFn* serialize) {
+void Reflex_scanPrimary(Reflex* reflex, void* obj) {
     Reflex_Type_BitFields ptype;
     uint8_t* pobj = (uint8_t*) obj;
     Reflex_Type_Helper* helper;
+    const uint8_t* fmt = reflex->Fmt;
+    const Reflex_SerializeFn* serialize = reflex->RepeatFn ? reflex->SerializeFunctions : &reflex->Serialize;
+    void* out = reflex->Buffer;
 
     while (*fmt != Reflex_Type_Unknown) {
         ptype.Type = *fmt++;
@@ -112,17 +115,23 @@ void Reflex_serializePrimary(void* out, const uint8_t* fmt, void* obj, Reflex_Se
         pobj = helper->alignAddress(pobj, ptype.Type, 0, 0);
         // serialize
         if (*serialize != NULL) {
-            (*serialize)(out, pobj, ptype.Type, 0, 0);
+            (*serialize)(reflex, out, pobj, ptype.Type, 0, 0);
         }
-        serialize++;
+        if (!reflex->RepeatFn) {
+            serialize++;
+        }
         // move pobj
         pobj = helper->moveAddress(pobj, ptype.Type, 0, 0);
     }
 }
 
-void Reflex_serialize(void* out, const Reflex_TypeParams* fmt, Reflex_LenType len, void* obj, Reflex_SerializeFn* serialize) {
+void Reflex_scan(Reflex* reflex, void* obj) {
     uint8_t* pobj = (uint8_t*) obj;
     Reflex_Type_Helper* helper;
+    const Reflex_TypeParams* fmt = reflex->Fmt;
+    const Reflex_SerializeFn* serialize = reflex->SerializeFunctions;
+    void* out = reflex->Buffer;
+    Reflex_LenType len = reflex->VariablesLength;
 
     while (len-- > 0) {
         helper = &REFLEX_HELPER[fmt->Fields.Category];
@@ -130,9 +139,11 @@ void Reflex_serialize(void* out, const Reflex_TypeParams* fmt, Reflex_LenType le
         pobj = helper->alignAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
         // serialize
         if (*serialize != NULL) {
-            (*serialize)(out, pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+            (*serialize)(reflex, out, pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
         }
-        serialize++;
+        if (!reflex->RepeatFn) {
+            serialize++;
+        }
         // move pobj
         pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
         // next fmt
