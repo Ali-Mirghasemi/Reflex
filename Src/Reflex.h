@@ -171,6 +171,22 @@ typedef struct {
 
 #define REFLEX_TYPE_PARAMS(TY, LEN, LEN2)           { .Len = LEN, .Len2 = LEN2, .Type = TY }
 
+
+typedef enum {
+  Reflex_SizeType_Normal        = 0,
+  Reflex_SizeType_Packed        = 1,
+} Reflex_SizeType;
+
+typedef enum {
+    Reflex_FunctionMode_Single          = 0,
+    Reflex_FunctionMode_Array           = 1,
+} Reflex_FunctionMode;
+
+typedef enum {
+    Reflex_FormatMode_Param             = 0,
+    Reflex_FormatMode_Primary           = 1,
+} Reflex_FormatMode;
+
 struct __Reflex {
     void*                           Args;
     void*                           Buffer;
@@ -183,12 +199,19 @@ struct __Reflex {
         Reflex_SerializeFn          Serialize;
     };
     Reflex_LenType                  VariablesLength;
-    uint8_t                         RepeatFn;
+    uint8_t                         FunctionMode        : 1;           /**< Reflex Serialize FunctionMode */
+    uint8_t                         FormatMode          : 1;           /**< Reflex Serialize FunctionMode */
 };
 
 void Reflex_scanPrimary(Reflex* reflex, void* obj);
 
 void Reflex_scan(Reflex* reflex, void* obj);
+
+Reflex_LenType Reflex_size(Reflex* reflex, Reflex_SizeType type);
+Reflex_LenType Reflex_sizeNormal(Reflex* reflex);
+Reflex_LenType Reflex_sizePacked(Reflex* reflex);
+Reflex_LenType Reflex_sizeNormalPrimary(Reflex* reflex);
+Reflex_LenType Reflex_sizePackedPrimary(Reflex* reflex);
 
 #ifdef __cplusplus
 };
