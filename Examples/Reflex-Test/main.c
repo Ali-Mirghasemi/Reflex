@@ -6,7 +6,7 @@
 #define PRINTF						printf
 
 uint32_t assertResult = 0;
-#define assert(TYPE, ...)			if((assertResult = Assert_ ##TYPE (__VA_ARGS__, __LINE__)) != Str_Ok) return assertResult
+#define assert(TYPE, ...)			if((assertResult = Assert_ ##TYPE (__VA_ARGS__, __LINE__)) != 0) return assertResult
 
 #define ARRAY_LEN(ARR)			    (sizeof(ARR) / sizeof(ARR[0]))
 
@@ -17,15 +17,18 @@ typedef uint32_t Test_Result;
 typedef Test_Result (*Test_Fn)(void);
 
 Test_Result Assert_Str(const char* str1, const char* str2, uint16_t line);
+Test_Result Assert_Num(int32_t val1, int32_t val2, uint16_t line);
 void Result_print(Test_Result result);
 
 
 Test_Result Test_Primary_Serielize(void);
 Test_Result Test_Serielize(void);
+Test_Result Test_Size(void);
 
 const Test_Fn Tests[] = {
     Test_Primary_Serielize,
     Test_Serielize,
+    Test_Size,
 };
 const uint32_t Tests_Len = sizeof(Tests) / sizeof(Tests[0]);
 
@@ -141,14 +144,15 @@ Test_Result Test_Primary_Serielize(void) {
     PrimaryTemp3 temp3;
     PrimaryTemp4 temp4;
 
-    reflex.Serialize = SERIALIZE;
-    reflex.RepeatFn = 1;
+    reflex.Serialize = Reflex_checkAddress;
+    reflex.FunctionMode = Reflex_FunctionMode_Single;
 
     addressMapIndex = 0;
     addressMap[0] = &temp1.X;
     addressMap[1] = &temp1.Y;
     addressMap[2] = &temp1.Z;
     reflex.PrimaryFmt = PrimaryTemp1_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Primary;
     Reflex_scanPrimary(&reflex, &temp1);
 
     addressMapIndex = 0;
@@ -156,6 +160,7 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[1] = &temp2.Y;
     addressMap[2] = &temp2.Z;
     reflex.PrimaryFmt = PrimaryTemp2_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Primary;
     Reflex_scanPrimary(&reflex, &temp2);
 
     addressMapIndex = 0;
@@ -164,6 +169,7 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[2] = &temp3.C;
     addressMap[3] = &temp3.D;
     reflex.PrimaryFmt = PrimaryTemp3_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Primary;
     Reflex_scanPrimary(&reflex, &temp3);
 
     addressMapIndex = 0;
@@ -180,6 +186,7 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[10] = &temp4.V10;
     addressMap[11] = &temp4.V11;
     reflex.PrimaryFmt = PrimaryTemp4_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Primary;
     Reflex_scanPrimary(&reflex, &temp4);
 
     return 0;
@@ -202,11 +209,11 @@ const Reflex_TypeParams Model1_FMT[] = {
 const uint8_t Model1_FMT_Len = sizeof(Model1_FMT) / sizeof(Model1_FMT[0]);
 
 Test_Result Test_Serielize(void) {
-    Reflex reflex;
+    Reflex reflex = {0};
     Model1 temp1;
 
-    reflex.Serialize = SERIALIZE;
-    reflex.RepeatFn = 1;
+    reflex.Serialize = Reflex_checkAddress;
+    reflex.FunctionMode = Reflex_FunctionMode_Single;
 
     addressMapIndex = 0;
     addressMap[0] = &temp1.V0;
@@ -215,8 +222,76 @@ Test_Result Test_Serielize(void) {
     addressMap[3] = &temp1.V3;
     addressMap[4] = &temp1.V4;
     reflex.Fmt = Model1_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Param;
     reflex.VariablesLength = Model1_FMT_Len;
     Reflex_scan(&reflex, &temp1);
+
+    return 0;
+}
+// -------------------------- Test Size -------------------------
+Test_Result Test_Size(void) {
+    Reflex reflex = {0};
+    Model1 model1;
+    PrimaryTemp1 temp1;
+    PrimaryTemp2 temp2;
+    PrimaryTemp3 temp3;
+    PrimaryTemp4 temp4;
+
+    reflex.Serialize = Reflex_checkAddress;
+    reflex.FunctionMode = 0;
+
+    addressMapIndex = 0;
+    addressMap[0] = &model1.V0;
+    addressMap[1] = &model1.V1;
+    addressMap[2] = &model1.V2;
+    addressMap[3] = &model1.V3;
+    addressMap[4] = &model1.V4;
+    reflex.Fmt = Model1_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Param;
+    reflex.VariablesLength = Model1_FMT_Len;
+    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(model1));
+
+    addressMapIndex = 0;
+    addressMap[0] = &temp1.X;
+    addressMap[1] = &temp1.Y;
+    addressMap[2] = &temp1.Z;
+    reflex.PrimaryFmt = PrimaryTemp1_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Primary;
+    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(temp1));
+
+    addressMapIndex = 0;
+    addressMap[0] = &temp2.X;
+    addressMap[1] = &temp2.Y;
+    addressMap[2] = &temp2.Z;
+    reflex.PrimaryFmt = PrimaryTemp2_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Primary;
+    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(temp2));
+
+    addressMapIndex = 0;
+    addressMap[0] = &temp3.A;
+    addressMap[1] = &temp3.B;
+    addressMap[2] = &temp3.C;
+    addressMap[3] = &temp3.D;
+    reflex.PrimaryFmt = PrimaryTemp3_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Primary;
+    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(temp3));
+
+    addressMapIndex = 0;
+    addressMap[0] = &temp4.V0;
+    addressMap[1] = &temp4.V1;
+    addressMap[2] = &temp4.V2;
+    addressMap[3] = &temp4.V3;
+    addressMap[4] = &temp4.V4;
+    addressMap[5] = &temp4.V5;
+    addressMap[6] = &temp4.V6;
+    addressMap[7] = &temp4.V7;
+    addressMap[8] = &temp4.V8;
+    addressMap[9] = &temp4.V9;
+    addressMap[10] = &temp4.V10;
+    addressMap[11] = &temp4.V11;
+    reflex.PrimaryFmt = PrimaryTemp4_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Primary;
+    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(temp4));
 
     return 0;
 }
@@ -225,3 +300,12 @@ void Result_print(Test_Result result) {
     PRINTF("Line: %u, Index: %u\r\n", result >> 16, result & 0xFFFF);
 }
 
+Test_Result Assert_Num(int32_t val1, int32_t val2, uint16_t line) {
+    if (val1 != val2) {
+        PRINTF("Assert Num: expected %d, found %d, Line: %d", val2, val1, line);
+        return line << 16;
+    }
+    else {
+        return 0;
+    }
+}
