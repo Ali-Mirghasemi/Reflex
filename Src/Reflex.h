@@ -68,6 +68,12 @@ typedef enum {
 
 #define REFLEX_TYPE(CAT, TY)         Reflex_Type_ ##CAT ##_ ##TY = Reflex_Category_ ##CAT << 5 | Reflex_PrimaryType_ ##TY
 
+/**
+ * @brief Reflex type that user can use 
+ * format: Reflex_Type_<Category>_<PrimaryType>
+ * ex: Reflex_Type_Pointer_UInt8
+ * 
+ */
 typedef enum {
     // ------------- Primary Types --------------
     REFLEX_TYPE(Primary, Unknown),
@@ -150,16 +156,6 @@ typedef union {
 
 typedef void (*Reflex_SerializeFn)(Reflex* reflex, void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
 
-typedef void* (*Reflex_AlignAddressFn)(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
-typedef void* (*Reflex_MoveAddressFn)(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
-/**
- * @brief This struct hold helper functions for manage serialize and deserialize
- */
-typedef struct {
-    Reflex_AlignAddressFn    alignAddress;
-    Reflex_MoveAddressFn     moveAddress;
-} Reflex_Type_Helper;
-
 typedef struct {
     Reflex_LenType               Len;
     Reflex_LenType               Len2;
@@ -199,6 +195,7 @@ struct __Reflex {
         Reflex_SerializeFn          Serialize;
     };
     Reflex_LenType                  VariablesLength;
+    Reflex_LenType                  VariableIndex;
     uint8_t                         FunctionMode        : 1;           /**< Reflex Serialize FunctionMode */
     uint8_t                         FormatMode          : 1;           /**< Reflex Serialize FunctionMode */
 };
