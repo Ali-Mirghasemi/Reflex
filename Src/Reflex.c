@@ -1,6 +1,15 @@
 #include "Reflex.h"
 
 /* Private typedef */
+typedef void* (*Reflex_AlignAddressFn)(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
+typedef void* (*Reflex_MoveAddressFn)(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
+/**
+ * @brief This struct hold helper functions for manage serialize and deserialize
+ */
+typedef struct {
+    Reflex_AlignAddressFn    alignAddress;
+    Reflex_MoveAddressFn     moveAddress;
+} Reflex_Type_Helper;
 typedef Reflex_LenType (*Reflex_SizeFn)(Reflex* Reflex);
 
 /* Private Functions */
@@ -90,6 +99,7 @@ void Reflex_scanPrimary(Reflex* reflex, void* obj) {
     const uint8_t* fmt = reflex->PrimaryFmt;
     const Reflex_SerializeFn* serialize = reflex->FunctionMode != Reflex_FunctionMode_Single ? reflex->SerializeFunctions : &reflex->Serialize;
     void* out = reflex->Buffer;
+    reflex->VariableIndex = 0;
 
     while (*fmt != Reflex_Type_Unknown) {
         ptype.Type = *fmt++;
@@ -105,6 +115,7 @@ void Reflex_scanPrimary(Reflex* reflex, void* obj) {
         }
         // move pobj
         pobj = helper->moveAddress(pobj, ptype.Type, 0, 0);
+        reflex->VariableIndex++;
     }
 }
 
@@ -115,6 +126,7 @@ void Reflex_scan(Reflex* reflex, void* obj) {
     const Reflex_SerializeFn* serialize = reflex->FunctionMode ? reflex->SerializeFunctions : &reflex->Serialize;
     void* out = reflex->Buffer;
     Reflex_LenType len = reflex->VariablesLength;
+    reflex->VariableIndex = 0;
 
     while (len-- > 0) {
         helper = &REFLEX_HELPER[fmt->Fields.Category];
@@ -131,6 +143,7 @@ void Reflex_scan(Reflex* reflex, void* obj) {
         pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
         // next fmt
         fmt++;
+        reflex->VariableIndex++;
     }
 }
 
