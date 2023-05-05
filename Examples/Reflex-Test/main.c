@@ -53,12 +53,12 @@ int main()
 }
 
 // ---------------- Test Serialize ---------------
-void*       addressMap[12] = {0};
+void*       addressMap[64] = {0};
 uint8_t     addressMapIndex = 0;
 
 void Reflex_checkAddress(Reflex* reflex, void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
     if (addressMap[addressMapIndex] != value) {
-        PRINTF("Address not match: %X != %X\n", addressMap[addressMapIndex], value);
+        PRINTF("Idx: %d, Address not match: %X != %X\n", reflex->VariableIndex, addressMap[addressMapIndex], value);
     }
     addressMapIndex++;
 }
