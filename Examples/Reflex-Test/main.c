@@ -56,11 +56,13 @@ int main()
 void*       addressMap[64] = {0};
 uint8_t     addressMapIndex = 0;
 
-void Reflex_checkAddress(Reflex* reflex, void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
+Reflex_Result Reflex_checkAddress(Reflex* reflex, void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
     if (addressMap[addressMapIndex] != value) {
         PRINTF("Idx: %d, Address not match: %X != %X\n", reflex->VariableIndex, addressMap[addressMapIndex], value);
     }
     addressMapIndex++;
+
+    return REFLEX_OK;
 }
 
 const Reflex_SerializeFn SERIALIZE[] = {
@@ -144,8 +146,8 @@ Test_Result Test_Primary_Serielize(void) {
     PrimaryTemp3 temp3;
     PrimaryTemp4 temp4;
 
-    reflex.Serialize = Reflex_checkAddress;
-    reflex.FunctionMode = Reflex_FunctionMode_Single;
+    reflex.serializeCb = Reflex_checkAddress;
+    reflex.FunctionMode = Reflex_FunctionMode_Callback;
 
     addressMapIndex = 0;
     addressMap[0] = &temp1.X;
@@ -153,7 +155,7 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[2] = &temp1.Z;
     reflex.PrimaryFmt = PrimaryTemp1_FMT;
     reflex.FormatMode = Reflex_FormatMode_Primary;
-    Reflex_scanPrimary(&reflex, &temp1);
+    Reflex_serializePrimary(&reflex, &temp1);
 
     addressMapIndex = 0;
     addressMap[0] = &temp2.X;
@@ -161,7 +163,7 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[2] = &temp2.Z;
     reflex.PrimaryFmt = PrimaryTemp2_FMT;
     reflex.FormatMode = Reflex_FormatMode_Primary;
-    Reflex_scanPrimary(&reflex, &temp2);
+    Reflex_serializePrimary(&reflex, &temp2);
 
     addressMapIndex = 0;
     addressMap[0] = &temp3.A;
@@ -170,7 +172,7 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[3] = &temp3.D;
     reflex.PrimaryFmt = PrimaryTemp3_FMT;
     reflex.FormatMode = Reflex_FormatMode_Primary;
-    Reflex_scanPrimary(&reflex, &temp3);
+    Reflex_serializePrimary(&reflex, &temp3);
 
     addressMapIndex = 0;
     addressMap[0] = &temp4.V0;
@@ -187,7 +189,7 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[11] = &temp4.V11;
     reflex.PrimaryFmt = PrimaryTemp4_FMT;
     reflex.FormatMode = Reflex_FormatMode_Primary;
-    Reflex_scanPrimary(&reflex, &temp4);
+    Reflex_serializePrimary(&reflex, &temp4);
 
     return 0;
 }
@@ -204,7 +206,7 @@ const Reflex_TypeParams Model1_FMT[] = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 10, 0),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt32, 0, 0),
     REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4, 0),
-    REFLEX_TYPE_PARAMS(Reflex_Type_2DArray_Char, 4, 32),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array2D_Char, 4, 32),
 };
 const uint8_t Model1_FMT_Len = sizeof(Model1_FMT) / sizeof(Model1_FMT[0]);
 
@@ -212,8 +214,8 @@ Test_Result Test_Serielize(void) {
     Reflex reflex = {0};
     Model1 temp1;
 
-    reflex.Serialize = Reflex_checkAddress;
-    reflex.FunctionMode = Reflex_FunctionMode_Single;
+    reflex.serializeCb = Reflex_checkAddress;
+    reflex.FunctionMode = Reflex_FunctionMode_Callback;
 
     addressMapIndex = 0;
     addressMap[0] = &temp1.V0;
@@ -224,7 +226,7 @@ Test_Result Test_Serielize(void) {
     reflex.Fmt = Model1_FMT;
     reflex.FormatMode = Reflex_FormatMode_Param;
     reflex.VariablesLength = Model1_FMT_Len;
-    Reflex_scan(&reflex, &temp1);
+    Reflex_serialize(&reflex, &temp1);
 
     return 0;
 }
@@ -237,7 +239,7 @@ Test_Result Test_Size(void) {
     PrimaryTemp3 temp3;
     PrimaryTemp4 temp4;
 
-    reflex.Serialize = Reflex_checkAddress;
+    reflex.serializeCb = Reflex_checkAddress;
     reflex.FunctionMode = 0;
 
     addressMapIndex = 0;
