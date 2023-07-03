@@ -30,11 +30,15 @@ extern "C" {
 
 typedef int16_t Reflex_LenType;
 
+typedef uint32_t Reflex_Result;
+
 /********************************************************************************************/
 
 /* Pre-Defined data types */
 struct __Reflex;
 typedef struct __Reflex Reflex;
+
+#define REFLEX_OK           0
 
 /**
  * @brief supported param categories
@@ -44,7 +48,7 @@ typedef enum {
     Reflex_Category_Pointer,       /**< pointer mode for primary types */
     Reflex_Category_Array,         /**< array mode for primary types, required length */
     Reflex_Category_PointerArray,  /**< array of pointers for primary types, required length */
-    Reflex_Category_2DArray,       /**< 2D array of primary types */
+    Reflex_Category_Array2D,       /**< 2D array of primary types */
     Reflex_Category_Length,
 } Reflex_Category;
 /**
@@ -127,19 +131,19 @@ typedef enum {
     REFLEX_TYPE(PointerArray, Int64),
     REFLEX_TYPE(PointerArray, Float),
     REFLEX_TYPE(PointerArray, Double),
-    // ------------- 2DArray Types --------------
-    REFLEX_TYPE(2DArray, Unknown),
-    REFLEX_TYPE(2DArray, Char),
-    REFLEX_TYPE(2DArray, UInt8),
-    REFLEX_TYPE(2DArray, Int8),
-    REFLEX_TYPE(2DArray, UInt16),
-    REFLEX_TYPE(2DArray, Int16),
-    REFLEX_TYPE(2DArray, UInt32),
-    REFLEX_TYPE(2DArray, Int32),
-    REFLEX_TYPE(2DArray, UInt64),
-    REFLEX_TYPE(2DArray, Int64),
-    REFLEX_TYPE(2DArray, Float),
-    REFLEX_TYPE(2DArray, Double),
+    // ------------- Array2D Types --------------
+    REFLEX_TYPE(Array2D, Unknown),
+    REFLEX_TYPE(Array2D, Char),
+    REFLEX_TYPE(Array2D, UInt8),
+    REFLEX_TYPE(Array2D, Int8),
+    REFLEX_TYPE(Array2D, UInt16),
+    REFLEX_TYPE(Array2D, Int16),
+    REFLEX_TYPE(Array2D, UInt32),
+    REFLEX_TYPE(Array2D, Int32),
+    REFLEX_TYPE(Array2D, UInt64),
+    REFLEX_TYPE(Array2D, Int64),
+    REFLEX_TYPE(Array2D, Float),
+    REFLEX_TYPE(Array2D, Double),
 } Reflex_Type;
 
 #define Reflex_Type_Unknown          Reflex_Type_Primary_Unknown
@@ -154,18 +158,80 @@ typedef union {
     };
 } Reflex_Type_BitFields;
 
-typedef void (*Reflex_SerializeFn)(Reflex* reflex, void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
+/**
+ * @brief This function used for serialize/deserialize specific type and field
+ */
+typedef Reflex_Result (*Reflex_SerializeFn)(Reflex* reflex, void* buf, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType mLen);
+typedef Reflex_Result (*Reflex_DeserializeFn)(Reflex* reflex, void* buf, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType mLen);
+
+typedef union {
+    Reflex_SerializeFn      fn[Reflex_PrimaryType_Length];
+    struct {
+        Reflex_SerializeFn  serializeUnknown;
+        Reflex_SerializeFn  serializeChar;
+        Reflex_SerializeFn  serializeUInt8;
+        Reflex_SerializeFn  serializeInt8;
+        Reflex_SerializeFn  serializeUInt16;
+        Reflex_SerializeFn  serializeInt16;
+        Reflex_SerializeFn  serializeUInt32;
+        Reflex_SerializeFn  serializeInt32;
+        Reflex_SerializeFn  serializeUInt64;
+        Reflex_SerializeFn  serializeInt64;
+        Reflex_SerializeFn  serializeFloat;
+        Reflex_SerializeFn  serializeDouble;
+    };
+} Reflex_SerializeFunctions;
+
+typedef union {
+    Reflex_SerializeFunctions       Category[Reflex_Category_Length];
+    struct {
+        Reflex_SerializeFunctions   Primary;
+        Reflex_SerializeFunctions   Pointer;
+        Reflex_SerializeFunctions   Array;
+        Reflex_SerializeFunctions   PointerArray;
+        Reflex_SerializeFunctions   Array2D;
+    };
+} Reflex_Serialize;
+
+typedef union {
+    Reflex_DeserializeFn      fn[Reflex_PrimaryType_Length];
+    struct {
+        Reflex_DeserializeFn  deserializeUnknown;
+        Reflex_DeserializeFn  deserializeChar;
+        Reflex_DeserializeFn  deserializeUInt8;
+        Reflex_DeserializeFn  deserializeInt8;
+        Reflex_DeserializeFn  deserializeUInt16;
+        Reflex_DeserializeFn  deserializeInt16;
+        Reflex_DeserializeFn  deserializeUInt32;
+        Reflex_DeserializeFn  deserializeInt32;
+        Reflex_DeserializeFn  deserializeUInt64;
+        Reflex_DeserializeFn  deserializeInt64;
+        Reflex_DeserializeFn  deserializeFloat;
+        Reflex_DeserializeFn  deserializeDouble;
+    };
+} Reflex_DeserializeFunctions;
+
+typedef union {
+    Reflex_DeserializeFunctions       Category[Reflex_Category_Length];
+    struct {
+        Reflex_DeserializeFunctions   Primary;
+        Reflex_DeserializeFunctions   Pointer;
+        Reflex_DeserializeFunctions   Array;
+        Reflex_DeserializeFunctions   PointerArray;
+        Reflex_DeserializeFunctions   Array2D;
+    };
+} Reflex_Deserialize;
 
 typedef struct {
-    Reflex_LenType               Len;
-    Reflex_LenType               Len2;
+    Reflex_LenType               Len;       /*< Used for Array Length, Array2D Row Length, Sizeof Struct, Sizeof Enum, Sizeof Union*/
+    Reflex_LenType               MLen;      /*< Used for Array2D Columns Length */
     union {
         Reflex_Type              Type;
         Reflex_Type_BitFields    Fields;
     };
 } Reflex_TypeParams;
 
-#define REFLEX_TYPE_PARAMS(TY, LEN, LEN2)           { .Len = LEN, .Len2 = LEN2, .Type = TY }
+#define REFLEX_TYPE_PARAMS(TY, LEN, MLEN)           { .Len = LEN, .MLen = MLEN, .Type = TY }
 
 
 typedef enum {
@@ -174,8 +240,8 @@ typedef enum {
 } Reflex_SizeType;
 
 typedef enum {
-    Reflex_FunctionMode_Single          = 0,
-    Reflex_FunctionMode_Array           = 1,
+    Reflex_FunctionMode_Callback        = 0,
+    Reflex_FunctionMode_Driver          = 1,
 } Reflex_FunctionMode;
 
 typedef enum {
@@ -191,8 +257,12 @@ struct __Reflex {
         const Reflex_TypeParams*    Fmt;
     };
     union {
-        const Reflex_SerializeFn*   SerializeFunctions;
-        Reflex_SerializeFn          Serialize;
+        const Reflex_Serialize*     Serialize;
+        Reflex_SerializeFn          serializeCb;
+    };
+    union {
+        const Reflex_Deserialize*   Deserialize;
+        Reflex_DeserializeFn        deserializeCb;
     };
     Reflex_LenType                  VariablesLength;
     Reflex_LenType                  VariableIndex;
@@ -200,9 +270,10 @@ struct __Reflex {
     uint8_t                         FormatMode          : 1;           /**< Reflex Serialize FunctionMode */
 };
 
-void Reflex_scanPrimary(Reflex* reflex, void* obj);
-
-void Reflex_scan(Reflex* reflex, void* obj);
+void Reflex_serializePrimary(Reflex* reflex, void* obj);
+void Reflex_serialize(Reflex* reflex, void* obj);
+void Reflex_deserializePrimary(Reflex* reflex, void* obj);
+void Reflex_deserialize(Reflex* reflex, void* obj);
 
 Reflex_LenType Reflex_size(Reflex* reflex, Reflex_SizeType type);
 Reflex_LenType Reflex_sizeNormal(Reflex* reflex);

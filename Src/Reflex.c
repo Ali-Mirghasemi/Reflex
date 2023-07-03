@@ -75,9 +75,9 @@ static void* Reflex_PointerArray_moveAddress(void* pValue, Reflex_Type type, Ref
     return (uint8_t*) pValue + objSize;
 }
 
-#define Reflex_2DArray_alignAddress Reflex_Primary_alignAddress
+#define Reflex_Array2D_alignAddress Reflex_Primary_alignAddress
 
-static void* Reflex_2DArray_moveAddress(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
+static void* Reflex_Array2D_moveAddress(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
     uint8_t objSize = PRIMARY_TYPE_SIZE[type & REFLEX_TYPE_PRIMARY_MASK] * len * len2;
     return (uint8_t*) pValue + objSize;
 }
@@ -89,16 +89,15 @@ static const Reflex_Type_Helper REFLEX_HELPER[Reflex_Category_Length] = {
     REFLEX_HELPER(Pointer),
     REFLEX_HELPER(Array),
     REFLEX_HELPER(PointerArray),
-    REFLEX_HELPER(2DArray),
+    REFLEX_HELPER(Array2D),
 };
 
-void Reflex_scanPrimary(Reflex* reflex, void* obj) {
+void Reflex_serializePrimary(Reflex* reflex, void* obj) {
     Reflex_Type_BitFields ptype;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const uint8_t* fmt = reflex->PrimaryFmt;
-    const Reflex_SerializeFn* serialize = reflex->FunctionMode != Reflex_FunctionMode_Single ? reflex->SerializeFunctions : &reflex->Serialize;
-    void* out = reflex->Buffer;
+    void* buf = reflex->Buffer;
     reflex->VariableIndex = 0;
 
     while (*fmt != Reflex_Type_Unknown) {
@@ -107,11 +106,11 @@ void Reflex_scanPrimary(Reflex* reflex, void* obj) {
         // check align
         pobj = helper->alignAddress(pobj, ptype.Type, 0, 0);
         // serialize
-        if (*serialize != NULL) {
-            (*serialize)(reflex, out, pobj, ptype.Type, 0, 0);
+        if (reflex->FunctionMode == Reflex_FunctionMode_Callback) {
+            reflex->serializeCb(reflex, buf, pobj, ptype.Type, 0, 0);
         }
-        if (reflex->FunctionMode != Reflex_FunctionMode_Single) {
-            serialize++;
+        else {
+            reflex->Serialize->Primary.fn[ptype.Primary](reflex, buf, pobj, ptype.Type, 0, 0);
         }
         // move pobj
         pobj = helper->moveAddress(pobj, ptype.Type, 0, 0);
@@ -119,28 +118,80 @@ void Reflex_scanPrimary(Reflex* reflex, void* obj) {
     }
 }
 
-void Reflex_scan(Reflex* reflex, void* obj) {
+void Reflex_deserializePrimary(Reflex* reflex, void* obj) {
+    Reflex_Type_BitFields ptype;
+    uint8_t* pobj = (uint8_t*) obj;
+    const Reflex_Type_Helper* helper;
+    const uint8_t* fmt = reflex->PrimaryFmt;
+    void* buf = reflex->Buffer;
+    reflex->VariableIndex = 0;
+
+    while (*fmt != Reflex_Type_Unknown) {
+        ptype.Type = *fmt++;
+        helper = &REFLEX_HELPER[ptype.Category];
+        // check align
+        pobj = helper->alignAddress(pobj, ptype.Type, 0, 0);
+        // deserialize
+        if (reflex->FunctionMode == Reflex_FunctionMode_Callback) {
+            reflex->deserializeCb(reflex, buf, pobj, ptype.Type, 0, 0);
+        }
+        else {
+            reflex->Deserialize->Primary.fn[ptype.Primary](reflex, buf, pobj, ptype.Type, 0, 0);
+        }
+        // move pobj
+        pobj = helper->moveAddress(pobj, ptype.Type, 0, 0);
+        reflex->VariableIndex++;
+    }
+}
+
+void Reflex_serialize(Reflex* reflex, void* obj) {
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const Reflex_TypeParams* fmt = reflex->Fmt;
-    const Reflex_SerializeFn* serialize = reflex->FunctionMode ? reflex->SerializeFunctions : &reflex->Serialize;
-    void* out = reflex->Buffer;
+    void* buf = reflex->Buffer;
     Reflex_LenType len = reflex->VariablesLength;
     reflex->VariableIndex = 0;
 
     while (len-- > 0) {
         helper = &REFLEX_HELPER[fmt->Fields.Category];
         // check align
-        pobj = helper->alignAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+        pobj = helper->alignAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         // serialize
-        if (*serialize != NULL) {
-            (*serialize)(reflex, out, pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+        if (reflex->FunctionMode == Reflex_FunctionMode_Callback) {
+            reflex->serializeCb(reflex, buf, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         }
-        if (reflex->FunctionMode != Reflex_FunctionMode_Single) {
-            serialize++;
+        else {
+            reflex->Serialize->Category[fmt->Fields.Category].fn[fmt->Fields.Primary](reflex, buf, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         }
         // move pobj
-        pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+        pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+        // next fmt
+        fmt++;
+        reflex->VariableIndex++;
+    }
+}
+
+void Reflex_deserialize(Reflex* reflex, void* obj) {
+    uint8_t* pobj = (uint8_t*) obj;
+    const Reflex_Type_Helper* helper;
+    const Reflex_TypeParams* fmt = reflex->Fmt;
+    void* buf = reflex->Buffer;
+    Reflex_LenType len = reflex->VariablesLength;
+    reflex->VariableIndex = 0;
+
+    while (len-- > 0) {
+        helper = &REFLEX_HELPER[fmt->Fields.Category];
+        // check align
+        pobj = helper->alignAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+        // deserialize
+        if (reflex->FunctionMode == Reflex_FunctionMode_Callback) {
+            reflex->deserializeCb(reflex, buf, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+        }
+        else {
+            reflex->Deserialize->Category[fmt->Fields.Category].fn[fmt->Fields.Primary](reflex, buf, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+        }
+        // move pobj
+        pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         // next fmt
         fmt++;
         reflex->VariableIndex++;
@@ -164,9 +215,9 @@ Reflex_LenType Reflex_sizeNormal(Reflex* reflex) {
             objsize = PRIMARY_TYPE_SIZE[fmt->Fields.Primary];
         }
         // check align
-        pobj = helper->alignAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+        pobj = helper->alignAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         // move pobj
-        pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+        pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         // next fmt
         fmt++;
     }
@@ -184,7 +235,7 @@ Reflex_LenType Reflex_sizePacked(Reflex* reflex) {
     while (len-- > 0) {
         helper = &REFLEX_HELPER[fmt->Fields.Category];
         // move pobj
-        pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->Len2);
+        pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         // next fmt
         fmt++;
     }
