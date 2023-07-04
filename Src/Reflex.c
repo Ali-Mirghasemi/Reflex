@@ -92,76 +92,80 @@ static const Reflex_Type_Helper REFLEX_HELPER[Reflex_Category_Length] = {
     REFLEX_HELPER(Array2D),
 };
 
-void Reflex_serializePrimary(Reflex* reflex, void* obj) {
+Reflex_Result Reflex_serializePrimary(Reflex* reflex, void* obj) {
+    Reflex_Result result = REFLEX_OK;
     Reflex_Type_BitFields ptype;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const uint8_t* fmt = reflex->PrimaryFmt;
-    void* buf = reflex->Buffer;
     reflex->VariableIndex = 0;
 
-    while (*fmt != Reflex_Type_Unknown) {
+    while (*fmt != Reflex_Type_Unknown && result == REFLEX_OK) {
         ptype.Type = *fmt++;
         helper = &REFLEX_HELPER[ptype.Category];
         // check align
         pobj = helper->alignAddress(pobj, ptype.Type, 0, 0);
         // serialize
         if (reflex->FunctionMode == Reflex_FunctionMode_Callback) {
-            reflex->serializeCb(reflex, buf, pobj, ptype.Type, 0, 0);
+            result = reflex->serializeCb(reflex, reflex->Buffer, pobj, ptype.Type, 0, 0);
         }
         else {
-            reflex->Serialize->Primary.fn[ptype.Primary](reflex, buf, pobj, ptype.Type, 0, 0);
+            result = reflex->Serialize->Primary->fn[ptype.Primary](reflex, reflex->Buffer, pobj, ptype.Type, 0, 0);
         }
         // move pobj
         pobj = helper->moveAddress(pobj, ptype.Type, 0, 0);
         reflex->VariableIndex++;
     }
+
+    return result;
 }
 
-void Reflex_deserializePrimary(Reflex* reflex, void* obj) {
+Reflex_Result Reflex_deserializePrimary(Reflex* reflex, void* obj) {
+    Reflex_Result result = REFLEX_OK;
     Reflex_Type_BitFields ptype;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const uint8_t* fmt = reflex->PrimaryFmt;
-    void* buf = reflex->Buffer;
     reflex->VariableIndex = 0;
 
-    while (*fmt != Reflex_Type_Unknown) {
+    while (*fmt != Reflex_Type_Unknown && result == REFLEX_OK) {
         ptype.Type = *fmt++;
         helper = &REFLEX_HELPER[ptype.Category];
         // check align
         pobj = helper->alignAddress(pobj, ptype.Type, 0, 0);
         // deserialize
         if (reflex->FunctionMode == Reflex_FunctionMode_Callback) {
-            reflex->deserializeCb(reflex, buf, pobj, ptype.Type, 0, 0);
+            result = reflex->deserializeCb(reflex, reflex->Buffer, pobj, ptype.Type, 0, 0);
         }
         else {
-            reflex->Deserialize->Primary.fn[ptype.Primary](reflex, buf, pobj, ptype.Type, 0, 0);
+            result = reflex->Deserialize->Primary->fn[ptype.Primary](reflex, reflex->Buffer, pobj, ptype.Type, 0, 0);
         }
         // move pobj
         pobj = helper->moveAddress(pobj, ptype.Type, 0, 0);
         reflex->VariableIndex++;
     }
+
+    return result;
 }
 
-void Reflex_serialize(Reflex* reflex, void* obj) {
+Reflex_Result Reflex_serialize(Reflex* reflex, void* obj) {
+    Reflex_Result result = REFLEX_OK;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const Reflex_TypeParams* fmt = reflex->Fmt;
-    void* buf = reflex->Buffer;
     Reflex_LenType len = reflex->VariablesLength;
     reflex->VariableIndex = 0;
 
-    while (len-- > 0) {
+    while (len-- > 0 && result == REFLEX_OK) {
         helper = &REFLEX_HELPER[fmt->Fields.Category];
         // check align
         pobj = helper->alignAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         // serialize
         if (reflex->FunctionMode == Reflex_FunctionMode_Callback) {
-            reflex->serializeCb(reflex, buf, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+            result = reflex->serializeCb(reflex, reflex->Buffer, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         }
         else {
-            reflex->Serialize->Category[fmt->Fields.Category].fn[fmt->Fields.Primary](reflex, buf, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+            result = reflex->Serialize->Category[fmt->Fields.Category]->fn[fmt->Fields.Primary](reflex, reflex->Buffer, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         }
         // move pobj
         pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
@@ -169,26 +173,28 @@ void Reflex_serialize(Reflex* reflex, void* obj) {
         fmt++;
         reflex->VariableIndex++;
     }
+
+    return result;
 }
 
-void Reflex_deserialize(Reflex* reflex, void* obj) {
+Reflex_Result Reflex_deserialize(Reflex* reflex, void* obj) {
+    Reflex_Result result = REFLEX_OK;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const Reflex_TypeParams* fmt = reflex->Fmt;
-    void* buf = reflex->Buffer;
     Reflex_LenType len = reflex->VariablesLength;
     reflex->VariableIndex = 0;
 
-    while (len-- > 0) {
+    while (len-- > 0 && result == REFLEX_OK) {
         helper = &REFLEX_HELPER[fmt->Fields.Category];
         // check align
         pobj = helper->alignAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         // deserialize
         if (reflex->FunctionMode == Reflex_FunctionMode_Callback) {
-            reflex->deserializeCb(reflex, buf, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+            result = reflex->deserializeCb(reflex, reflex->Buffer, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         }
         else {
-            reflex->Deserialize->Category[fmt->Fields.Category].fn[fmt->Fields.Primary](reflex, buf, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+            result = reflex->Deserialize->Category[fmt->Fields.Category]->fn[fmt->Fields.Primary](reflex, reflex->Buffer, pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
         }
         // move pobj
         pobj = helper->moveAddress(pobj, fmt->Fields.Type, fmt->Len, fmt->MLen);
@@ -196,6 +202,8 @@ void Reflex_deserialize(Reflex* reflex, void* obj) {
         fmt++;
         reflex->VariableIndex++;
     }
+
+    return result;
 }
 
 Reflex_LenType Reflex_size(Reflex* reflex, Reflex_SizeType type) {
@@ -279,3 +287,9 @@ Reflex_LenType Reflex_sizePackedPrimary(Reflex* reflex) {
     return (Reflex_LenType) pobj;
 }
 
+Reflex_LenType Reflex_getVariableIndex(Reflex* reflex) {
+    return reflex->VariableIndex;
+}
+Reflex_LenType Reflex_getVariablesLength(Reflex* reflex) {
+    return reflex->VariablesLength;
+}

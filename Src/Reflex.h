@@ -183,15 +183,15 @@ typedef union {
 } Reflex_SerializeFunctions;
 
 typedef union {
-    Reflex_SerializeFunctions       Category[Reflex_Category_Length];
+    const Reflex_SerializeFunctions*      Category[Reflex_Category_Length];
     struct {
-        Reflex_SerializeFunctions   Primary;
-        Reflex_SerializeFunctions   Pointer;
-        Reflex_SerializeFunctions   Array;
-        Reflex_SerializeFunctions   PointerArray;
-        Reflex_SerializeFunctions   Array2D;
+        const Reflex_SerializeFunctions*  Primary;
+        const Reflex_SerializeFunctions*  Pointer;
+        const Reflex_SerializeFunctions*  Array;
+        const Reflex_SerializeFunctions*  PointerArray;
+        const Reflex_SerializeFunctions*  Array2D;
     };
-} Reflex_Serialize;
+} Reflex_SerializeDriver;
 
 typedef union {
     Reflex_DeserializeFn      fn[Reflex_PrimaryType_Length];
@@ -212,15 +212,15 @@ typedef union {
 } Reflex_DeserializeFunctions;
 
 typedef union {
-    Reflex_DeserializeFunctions       Category[Reflex_Category_Length];
+    const Reflex_DeserializeFunctions*      Category[Reflex_Category_Length];
     struct {
-        Reflex_DeserializeFunctions   Primary;
-        Reflex_DeserializeFunctions   Pointer;
-        Reflex_DeserializeFunctions   Array;
-        Reflex_DeserializeFunctions   PointerArray;
-        Reflex_DeserializeFunctions   Array2D;
+        const Reflex_DeserializeFunctions*  Primary;
+        const Reflex_DeserializeFunctions*  Pointer;
+        const Reflex_DeserializeFunctions*  Array;
+        const Reflex_DeserializeFunctions*  PointerArray;
+        const Reflex_DeserializeFunctions*  Array2D;
     };
-} Reflex_Deserialize;
+} Reflex_DeserializeDriver;
 
 typedef struct {
     Reflex_LenType               Len;       /*< Used for Array Length, Array2D Row Length, Sizeof Struct, Sizeof Enum, Sizeof Union*/
@@ -232,7 +232,7 @@ typedef struct {
 } Reflex_TypeParams;
 
 #define REFLEX_TYPE_PARAMS(TY, LEN, MLEN)           { .Len = LEN, .MLen = MLEN, .Type = TY }
-
+#define REFLEX_TYPE_PARAMS_LEN(ARR)                 (sizeof(ARR) / sizeof(ARR[0]))
 
 typedef enum {
   Reflex_SizeType_Normal        = 0,
@@ -249,31 +249,40 @@ typedef enum {
     Reflex_FormatMode_Primary           = 1,
 } Reflex_FormatMode;
 
+typedef struct {
+    const Reflex_TypeParams*            Fmt;
+    Reflex_LenType                      Len;
+} Reflex_Schema;
+
 struct __Reflex {
-    void*                           Args;
-    void*                           Buffer;
+    void*                               Args;
+    void*                               Buffer;
     union {
-        const uint8_t*              PrimaryFmt;
-        const Reflex_TypeParams*    Fmt;
+        const uint8_t*                  PrimaryFmt;
+        const Reflex_TypeParams*        Fmt;
     };
     union {
-        const Reflex_Serialize*     Serialize;
-        Reflex_SerializeFn          serializeCb;
+        const Reflex_SerializeDriver*   Serialize;
+        Reflex_SerializeFn              serializeCb;
     };
     union {
-        const Reflex_Deserialize*   Deserialize;
-        Reflex_DeserializeFn        deserializeCb;
+        const Reflex_DeserializeDriver* Deserialize;
+        Reflex_DeserializeFn            deserializeCb;
     };
-    Reflex_LenType                  VariablesLength;
-    Reflex_LenType                  VariableIndex;
-    uint8_t                         FunctionMode        : 1;           /**< Reflex Serialize FunctionMode */
-    uint8_t                         FormatMode          : 1;           /**< Reflex Serialize FunctionMode */
+    Reflex_LenType                      VariablesLength;
+    Reflex_LenType                      VariableIndex;
+    uint8_t                             FunctionMode        : 1;           /**< Reflex Serialize FunctionMode */
+    uint8_t                             FormatMode          : 1;           /**< Reflex Serialize FunctionMode */
+    uint8_t                             Reserved            : 6;
 };
 
-void Reflex_serializePrimary(Reflex* reflex, void* obj);
-void Reflex_serialize(Reflex* reflex, void* obj);
-void Reflex_deserializePrimary(Reflex* reflex, void* obj);
-void Reflex_deserialize(Reflex* reflex, void* obj);
+Reflex_Result Reflex_serializePrimary(Reflex* reflex, void* obj);
+Reflex_Result Reflex_serialize(Reflex* reflex, void* obj);
+Reflex_Result Reflex_deserializePrimary(Reflex* reflex, void* obj);
+Reflex_Result Reflex_deserialize(Reflex* reflex, void* obj);
+
+Reflex_LenType Reflex_getVariableIndex(Reflex* reflex);
+Reflex_LenType Reflex_getVariablesLength(Reflex* reflex);
 
 Reflex_LenType Reflex_size(Reflex* reflex, Reflex_SizeType type);
 Reflex_LenType Reflex_sizeNormal(Reflex* reflex);
