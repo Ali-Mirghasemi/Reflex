@@ -208,11 +208,26 @@ const Reflex_TypeParams Model1_FMT[] = {
     REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4, 0),
     REFLEX_TYPE_PARAMS(Reflex_Type_Array2D_Char, 4, 32),
 };
-const uint8_t Model1_FMT_Len = sizeof(Model1_FMT) / sizeof(Model1_FMT[0]);
+const uint8_t Model1_FMT_Len = REFLEX_TYPE_PARAMS_LEN(Model1_FMT);
+
+typedef struct {
+    int32_t     V0;
+    char        V1[32];
+    uint8_t     V2[8];
+    float       V3;
+} Model2;
+const Reflex_TypeParams Model2_FMT[] = {
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Int32, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 32, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float, 0, 0),
+};
+const uint8_t Model2_FMT_Len = REFLEX_TYPE_PARAMS_LEN(Model2_FMT);
 
 Test_Result Test_Serielize(void) {
     Reflex reflex = {0};
     Model1 temp1;
+    Model2 temp2;
 
     reflex.serializeCb = Reflex_checkAddress;
     reflex.FunctionMode = Reflex_FunctionMode_Callback;
@@ -227,6 +242,16 @@ Test_Result Test_Serielize(void) {
     reflex.FormatMode = Reflex_FormatMode_Param;
     reflex.VariablesLength = Model1_FMT_Len;
     Reflex_serialize(&reflex, &temp1);
+
+    addressMapIndex = 0;
+    addressMap[0] = &temp2.V0;
+    addressMap[1] = &temp2.V1;
+    addressMap[2] = &temp2.V2;
+    addressMap[3] = &temp2.V3;
+    reflex.Fmt = Model2_FMT;
+    reflex.FormatMode = Reflex_FormatMode_Param;
+    reflex.VariablesLength = Model2_FMT_Len;
+    Reflex_serialize(&reflex, &temp2);
 
     return 0;
 }
