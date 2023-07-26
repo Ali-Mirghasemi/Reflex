@@ -119,6 +119,10 @@ const uint8_t PrimaryModelA_FMT[] = {
     Reflex_Type_Primary_UInt8,
     Reflex_Type_Unknown,
 };
+const Reflex_Schema PrimaryModelA_SCHEMA = {
+    .PrimaryFmt = PrimaryModelA_FMT,
+    .FormatMode = Reflex_FormatMode_Primary,
+};
 
 typedef struct {
     int32_t     Id;
@@ -133,9 +137,12 @@ const Reflex_TypeParams ModelA_FMT[] = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8, 0),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float, 0, 0),
 };
-const Reflex_LenType ModelA_FMT_LEN = REFLEX_TYPE_PARAMS_LEN(ModelA_FMT);
+const Reflex_Schema ModelA_SCHEMA = {
+    .Fmt = ModelA_FMT,
+    .Len = REFLEX_TYPE_PARAMS_LEN(ModelA_FMT),
+    .FormatMode = Reflex_FormatMode_Param,
+};
 
-void serializePrimaryModel(StrBuf* buf, const uint8_t* fmt, void* obj);
 void serializeModel(StrBuf* buf, const Reflex_TypeParams* fmt, Reflex_LenType varLen, void* obj);
 
 int main()
@@ -153,7 +160,7 @@ int main()
         .Z = 45,
     };
 
-    serializePrimaryModel(&strBuf, PrimaryModelA_FMT, &primaryModelA);
+    serializeModel(&strBuf, &PrimaryModelA_SCHEMA, &primaryModelA);
     PRINTLN(txt);
 
     ModelA modelA = {
@@ -162,34 +169,19 @@ int main()
         .Secret = {0xAA, 0xBB, 0xCC, 0xDD, 0x11, 0x22, 0x33, 0x44},
         .Price = 4.5f,
     };
-    serializeModel(&strBuf, ModelA_FMT, ModelA_FMT_LEN, &modelA);
+    serializeModel(&strBuf, &ModelA_SCHEMA, &modelA);
     PRINTLN(txt);
 }
 
 /* ------------------------------ Implement Functions --------------------------- */
-void serializePrimaryModel(StrBuf* buf, const uint8_t* fmt, void* obj) {
+void serializeModel(StrBuf* buf, const Reflex_Schema* schema, void* obj) {
     Reflex reflex;
 
     reflex.Buffer = buf;
     reflex.FunctionMode = Reflex_FunctionMode_Driver;
     reflex.Serialize = &STR_SERIALIZE;
 
-    reflex.PrimaryFmt = fmt;
-    reflex.FormatMode = Reflex_FormatMode_Primary;
-    buf->Index = 0;
-    Reflex_serializePrimary(&reflex, obj);
-}
-
-void serializeModel(StrBuf* buf, const Reflex_TypeParams* fmt, Reflex_LenType varLen, void* obj) {
-    Reflex reflex;
-
-    reflex.Buffer = buf;
-    reflex.FunctionMode = Reflex_FunctionMode_Driver;
-    reflex.Serialize = &STR_SERIALIZE;
-
-    reflex.Fmt = fmt;
-    reflex.VariablesLength = varLen;
-    reflex.FormatMode = Reflex_FormatMode_Param;
+    reflex.Schema = schema;
     buf->Index = 0;
     Reflex_serialize(&reflex, obj);
 }
