@@ -250,17 +250,19 @@ typedef enum {
 } Reflex_FormatMode;
 
 typedef struct {
-    const Reflex_TypeParams*            Fmt;
-    Reflex_LenType                      Len;
+    union {
+        const uint8_t*                  PrimaryFmt;
+        const Reflex_TypeParams*        Fmt;
+    };
+    Reflex_LenType                      Len;                            /**< number of variables, for PrimaryFmt is optional */
+    uint8_t                             FormatMode          : 1;        /**< Reflex Serialize FunctionMode */
+    uint8_t                             Reserved            : 7;
 } Reflex_Schema;
 
 struct __Reflex {
     void*                               Args;
     void*                               Buffer;
-    union {
-        const uint8_t*                  PrimaryFmt;
-        const Reflex_TypeParams*        Fmt;
-    };
+    void*                               Obj;
     union {
         const Reflex_SerializeDriver*   Serialize;
         Reflex_SerializeFn              serializeCb;
@@ -269,20 +271,24 @@ struct __Reflex {
         const Reflex_DeserializeDriver* Deserialize;
         Reflex_DeserializeFn            deserializeCb;
     };
-    Reflex_LenType                      VariablesLength;
+    const Reflex_Schema*                Schema;
     Reflex_LenType                      VariableIndex;
-    uint8_t                             FunctionMode        : 1;           /**< Reflex Serialize FunctionMode */
-    uint8_t                             FormatMode          : 1;           /**< Reflex Serialize FunctionMode */
-    uint8_t                             Reserved            : 6;
+    uint8_t                             FunctionMode        : 1;        /**< Reflex Serialize FunctionMode */
+    uint8_t                             Reserved            : 7;
 };
 
+// --------- Serialize Functions ------------
 Reflex_Result Reflex_serializePrimary(Reflex* reflex, void* obj);
+Reflex_Result Reflex_serializeParam(Reflex* reflex, void* obj);
 Reflex_Result Reflex_serialize(Reflex* reflex, void* obj);
+// -------- Deserialize Functions -----------
 Reflex_Result Reflex_deserializePrimary(Reflex* reflex, void* obj);
+Reflex_Result Reflex_deserializeParam(Reflex* reflex, void* obj);
 Reflex_Result Reflex_deserialize(Reflex* reflex, void* obj);
-
+// ----------- Utils Functions --------------
 Reflex_LenType Reflex_getVariableIndex(Reflex* reflex);
 Reflex_LenType Reflex_getVariablesLength(Reflex* reflex);
+void*          Reflex_getMainVariable(Reflex* reflex);
 
 Reflex_LenType Reflex_size(Reflex* reflex, Reflex_SizeType type);
 Reflex_LenType Reflex_sizeNormal(Reflex* reflex);
@@ -295,3 +301,4 @@ Reflex_LenType Reflex_sizePackedPrimary(Reflex* reflex);
 #endif /* __cplusplus */
 
 #endif // _REFLEX_H_
+

@@ -3,6 +3,7 @@
 /* Private typedef */
 typedef void* (*Reflex_AlignAddressFn)(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
 typedef void* (*Reflex_MoveAddressFn)(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2);
+typedef Reflex_Result (*Reflex_SerdeFn)(Reflex* reflex, void* obj);
 /**
  * @brief This struct hold helper functions for manage serialize and deserialize
  */
@@ -28,6 +29,16 @@ static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
     sizeof(int64_t),
     sizeof(float),
     sizeof(double),
+};
+
+static const Reflex_SerdeFn REFLEX_SERIALIZE[] = {
+    Reflex_serializeParam,
+    Reflex_serializePrimary,
+};
+
+static const Reflex_SerdeFn REFLEX_DESERIALIZE[] = {
+    Reflex_deserializeParam,
+    Reflex_deserializePrimary,
 };
 
 static const Reflex_SizeFn REFLEX_SIZE[2][2] = {
@@ -97,8 +108,9 @@ Reflex_Result Reflex_serializePrimary(Reflex* reflex, void* obj) {
     Reflex_Type_BitFields ptype;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
-    const uint8_t* fmt = reflex->PrimaryFmt;
+    const uint8_t* fmt = reflex->Schema->PrimaryFmt;
     reflex->VariableIndex = 0;
+    reflex->Obj = obj;
 
     while (*fmt != Reflex_Type_Unknown && result == REFLEX_OK) {
         ptype.Type = *fmt++;
@@ -125,8 +137,9 @@ Reflex_Result Reflex_deserializePrimary(Reflex* reflex, void* obj) {
     Reflex_Type_BitFields ptype;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
-    const uint8_t* fmt = reflex->PrimaryFmt;
+    const uint8_t* fmt = reflex->Schema->PrimaryFmt;
     reflex->VariableIndex = 0;
+    reflex->Obj = obj;
 
     while (*fmt != Reflex_Type_Unknown && result == REFLEX_OK) {
         ptype.Type = *fmt++;
@@ -148,13 +161,14 @@ Reflex_Result Reflex_deserializePrimary(Reflex* reflex, void* obj) {
     return result;
 }
 
-Reflex_Result Reflex_serialize(Reflex* reflex, void* obj) {
+Reflex_Result Reflex_serializeParam(Reflex* reflex, void* obj) {
     Reflex_Result result = REFLEX_OK;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
-    const Reflex_TypeParams* fmt = reflex->Fmt;
-    Reflex_LenType len = reflex->VariablesLength;
+    const Reflex_TypeParams* fmt = reflex->Schema->Fmt;
+    Reflex_LenType len = reflex->Schema->Len;
     reflex->VariableIndex = 0;
+    reflex->Obj = obj;
 
     while (len-- > 0 && result == REFLEX_OK) {
         helper = &REFLEX_HELPER[fmt->Fields.Category];
@@ -177,13 +191,14 @@ Reflex_Result Reflex_serialize(Reflex* reflex, void* obj) {
     return result;
 }
 
-Reflex_Result Reflex_deserialize(Reflex* reflex, void* obj) {
+Reflex_Result Reflex_deserializeParam(Reflex* reflex, void* obj) {
     Reflex_Result result = REFLEX_OK;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
-    const Reflex_TypeParams* fmt = reflex->Fmt;
-    Reflex_LenType len = reflex->VariablesLength;
+    const Reflex_TypeParams* fmt = reflex->Schema->Fmt;
+    Reflex_LenType len = reflex->Schema->Len;
     reflex->VariableIndex = 0;
+    reflex->Obj = obj;
 
     while (len-- > 0 && result == REFLEX_OK) {
         helper = &REFLEX_HELPER[fmt->Fields.Category];
@@ -206,15 +221,23 @@ Reflex_Result Reflex_deserialize(Reflex* reflex, void* obj) {
     return result;
 }
 
+Reflex_Result Reflex_serialize(Reflex* reflex, void* obj) {
+    return REFLEX_SERIALIZE[(uint8_t) reflex->Schema->FormatMode](reflex, obj);
+}
+
+Reflex_Result Reflex_deserialize(Reflex* reflex, void* obj) {
+    return REFLEX_DESERIALIZE[(uint8_t) reflex->Schema->FormatMode](reflex, obj);
+}
+
 Reflex_LenType Reflex_size(Reflex* reflex, Reflex_SizeType type) {
-    return REFLEX_SIZE[reflex->FormatMode][type](reflex);
+    return REFLEX_SIZE[reflex->Schema->FormatMode][type](reflex);
 }
 
 Reflex_LenType Reflex_sizeNormal(Reflex* reflex) {
     uint8_t* pobj = (uint8_t*) 0;
     const Reflex_Type_Helper* helper;
-    const Reflex_TypeParams* fmt = reflex->Fmt;
-    Reflex_LenType len = reflex->VariablesLength;
+    const Reflex_TypeParams* fmt = reflex->Schema->Fmt;
+    Reflex_LenType len = reflex->Schema->Len;
     Reflex_LenType objsize = 0;
 
     while (len-- > 0) {
@@ -237,8 +260,8 @@ Reflex_LenType Reflex_sizeNormal(Reflex* reflex) {
 Reflex_LenType Reflex_sizePacked(Reflex* reflex) {
     uint8_t* pobj = (uint8_t*) 0;
     const Reflex_Type_Helper* helper;
-    const Reflex_TypeParams* fmt = reflex->Fmt;
-    Reflex_LenType len = reflex->VariablesLength;
+    const Reflex_TypeParams* fmt = reflex->Schema->Fmt;
+    Reflex_LenType len = reflex->Schema->Len;
 
     while (len-- > 0) {
         helper = &REFLEX_HELPER[fmt->Fields.Category];
@@ -253,7 +276,7 @@ Reflex_LenType Reflex_sizeNormalPrimary(Reflex* reflex) {
     Reflex_Type_BitFields ptype;
     uint8_t* pobj = (uint8_t*) 0;
     const Reflex_Type_Helper* helper;
-    const uint8_t* fmt = reflex->PrimaryFmt;
+    const uint8_t* fmt = reflex->Schema->PrimaryFmt;
     Reflex_LenType objsize = 0;
 
     while (*fmt != Reflex_Type_Unknown) {
@@ -276,7 +299,7 @@ Reflex_LenType Reflex_sizePackedPrimary(Reflex* reflex) {
     Reflex_Type_BitFields ptype;
     uint8_t* pobj = (uint8_t*) 0;
     const Reflex_Type_Helper* helper;
-    const uint8_t* fmt = reflex->PrimaryFmt;
+    const uint8_t* fmt = reflex->Schema->PrimaryFmt;
 
     while (*fmt != Reflex_Type_Unknown) {
         ptype.Type = *fmt++;
@@ -291,5 +314,8 @@ Reflex_LenType Reflex_getVariableIndex(Reflex* reflex) {
     return reflex->VariableIndex;
 }
 Reflex_LenType Reflex_getVariablesLength(Reflex* reflex) {
-    return reflex->VariablesLength;
+    return reflex->Schema->Len;
+}
+void* Reflex_getMainVariable(Reflex* reflex) {
+    return reflex->Obj;
 }
