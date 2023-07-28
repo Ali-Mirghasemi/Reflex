@@ -57,7 +57,7 @@ Reflex_Result Reflex_checkAddress(Reflex* reflex, void* out, void* value, Reflex
     void** addressMap = reflex->Args;
 
     if (addressMap[reflex->VariableIndex] != value) {
-        PRINTF("Idx: %d, Address not match: %X != %X\n",
+        PRINTF("Idx: %d, Address not match: %X != %X\r\n",
             reflex->VariableIndex,
             (uint32_t) addressMap[reflex->VariableIndex],
             (uint32_t) value
@@ -313,7 +313,7 @@ void Result_print(Test_Result result) {
 Test_Result Assert_Num(int32_t val1, int32_t val2, uint16_t line) {
     if (val1 != val2) {
         PRINTF("Assert Num: expected %d, found %d, Line: %d", val2, val1, line);
-        return line << 16;
+        return (Test_Result) line << 16;
     }
     else {
         return 0;
