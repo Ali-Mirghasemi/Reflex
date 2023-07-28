@@ -28,6 +28,12 @@ extern "C" {
 /*                                     Configuration                                        */
 /********************************************************************************************/
 
+/**
+ * @brief select your architecture bit width
+ * 
+ */
+#define REFLEX_ARCH						32 // bits
+
 typedef int16_t Reflex_LenType;
 
 typedef uint32_t Reflex_Result;

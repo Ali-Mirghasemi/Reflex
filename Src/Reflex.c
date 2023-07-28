@@ -46,6 +46,9 @@ static const Reflex_SizeFn REFLEX_SIZE[2][2] = {
     { Reflex_sizeNormalPrimary, Reflex_sizePackedPrimary,},
 };
 
+#if REFLEX_ARCH == 8
+    #define Reflex_alignAddress(pValue, objSize)        pValue
+#else 
 static void* Reflex_alignAddress(void* pValue, Reflex_LenType objSize) {
     uint32_t pobj = (uint32_t) pValue;
     
@@ -55,6 +58,7 @@ static void* Reflex_alignAddress(void* pValue, Reflex_LenType objSize) {
 
     return (void*) pobj;
 }
+#endif // REFLEX_ARCH
 
 static void* Reflex_Primary_alignAddress(void* pValue, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
     return Reflex_alignAddress(pValue, PRIMARY_TYPE_SIZE[type & REFLEX_TYPE_PRIMARY_MASK]);
