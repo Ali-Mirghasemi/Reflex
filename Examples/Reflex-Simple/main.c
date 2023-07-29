@@ -143,7 +143,26 @@ const Reflex_Schema ModelA_SCHEMA = {
     .FormatMode = Reflex_FormatMode_Param,
 };
 
-void serializeModel(StrBuf* buf, const Reflex_TypeParams* fmt, Reflex_LenType varLen, void* obj);
+typedef struct {
+    uint8_t  a;
+    char array[20];
+    float c;
+}ModelB;
+
+
+const Reflex_TypeParams ModelB_FMT[] = {
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt8, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 20, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float, 8, 0),
+};
+const Reflex_Schema ModelB_SCHEMA = {
+    .Fmt = ModelB_FMT,
+    .Len = REFLEX_TYPE_PARAMS_LEN(ModelB_FMT),
+    .FormatMode = Reflex_FormatMode_Param,
+};
+
+
+void serializeModel(StrBuf* buf, const Reflex_Schema* schema, void* obj);
 
 int main()
 {
@@ -170,6 +189,14 @@ int main()
         .Price = 4.5f,
     };
     serializeModel(&strBuf, &ModelA_SCHEMA, &modelA);
+    PRINTLN(txt);
+
+    ModelB modelB = {
+        .a = 12,
+        .array = "hello array",
+        .c = 12.5
+    };
+    serializeModel(&strBuf, &ModelB_SCHEMA, &modelB);
     PRINTLN(txt);
 }
 
