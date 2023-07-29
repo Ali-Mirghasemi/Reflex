@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "Reflex.h"
 
@@ -15,20 +16,47 @@ uint32_t assertResult = 0;
 
 typedef uint32_t Test_Result;
 typedef Test_Result (*Test_Fn)(void);
+typedef struct {
+    const char*     Name;
+    Test_Fn         fn;
+} TestCase;
 
 Test_Result Assert_Str(const char* str1, const char* str2, uint16_t line);
 Test_Result Assert_Num(int32_t val1, int32_t val2, uint16_t line);
 void Result_print(Test_Result result);
+void printTitle(uint8_t idx, const char* name);
+static const char FOOTER[] = "----------------------------------------------------------------";
 
-
-Test_Result Test_Primary_Serielize(void);
-Test_Result Test_Serde(void);
+#if REFLEX_FORMAT_MODE_PARAM
+    Test_Result Test_Param(void);
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+    Test_Result Test_Primary(void);
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+    Test_Result Test_ParamsOffset(void);
+#endif
+#if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
+    Test_Result Test_CustomTypeParams(void);
+#endif
 Test_Result Test_Size(void);
 
-const Test_Fn Tests[] = {
-    Test_Primary_Serielize,
-    Test_Serde,
-    Test_Size,
+#define TEST_CASE_INIT(NAME)        { .Name = #NAME, .fn = NAME }
+
+const TestCase Tests[] = {
+#if REFLEX_FORMAT_MODE_PARAM
+    TEST_CASE_INIT(Test_Param),
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+    TEST_CASE_INIT(Test_Primary),
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+    TEST_CASE_INIT(Test_ParamsOffset),
+#endif
+#if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
+    TEST_CASE_INIT(Test_CustomTypeParams),
+#endif
+    TEST_CASE_INIT(Test_Size),
 };
 const uint32_t Tests_Len = sizeof(Tests) / sizeof(Tests[0]);
 
@@ -39,17 +67,32 @@ int main()
 	Test_Result res;
 
 	for (testIndex = 0; testIndex < Tests_Len; testIndex++) {
-		PRINTF("---------------- Beginning Test[%d]------------ \r\n", testIndex);
-		res = Tests[testIndex]();
+		printTitle(testIndex, Tests[testIndex].Name);
+		res = Tests[testIndex].fn();
 		PRINTF("Test Result: %s\r\n", res ? "Error" : "Ok");
 		if (res) {
 			Result_print(res);
 			countTestError++;
 		}
-		PRINTLN("---------------------------------------------- \r\n");
+		PRINTLN(FOOTER);
 	}
 	PRINTLN("Test Done\r\n");
 	PRINTF("Tests Errors: %d\r\n", countTestError);
+}
+
+void printTitle(uint8_t idx, const char* name) {
+    char tmpNum[4];
+    char temp[65] = {0};
+    int len = strlen(name);
+    int nlen = sprintf(tmpNum, " %d ", idx);
+    int hlen = ((sizeof(FOOTER) - 1) - len - nlen - 1) / 2;
+    strncpy(&temp[0], FOOTER, hlen);
+    temp[hlen] = ' ';
+    strncpy(&temp[hlen + 1], name, len);
+    strncpy(&temp[hlen + len + 1], tmpNum, nlen);
+    strncpy(&temp[hlen + len + nlen + 1], FOOTER, hlen);
+    temp[2 * hlen + len + nlen + 1] = '\0';
+    PRINTLN(temp);
 }
 
 // ---------------- Test Serialize ---------------
@@ -59,14 +102,89 @@ Reflex_Result Reflex_checkAddress(Reflex* reflex, void* out, void* value, Reflex
     if (addressMap[reflex->VariableIndex] != value) {
         PRINTF("Idx: %d, Address not match: %X != %X\r\n",
             reflex->VariableIndex,
-            (uint32_t) addressMap[reflex->VariableIndex],
-            (uint32_t) value
+            addressMap[reflex->VariableIndex],
+            value
         );
+        return reflex->VariableIndex;
     }
 
     return REFLEX_OK;
 }
+
+// ----------------------------- Test Param ---------------------
+#if REFLEX_FORMAT_MODE_PARAM
+typedef struct {
+    uint8_t*        V0;
+    char            V1[10];
+    uint32_t        V2;
+    char*           V3[4];
+    char            V4[4][32];
+} Model1;
+const Reflex_TypeParams Model1_FMT[] = {
+    REFLEX_TYPE_PARAMS(Reflex_Type_Pointer_UInt8, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 10, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt32, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array2D_Char, 4, 32),
+};
+const Reflex_Schema Model1_SCHEMA = {
+    .Fmt = Model1_FMT,
+    .Len = REFLEX_TYPE_PARAMS_LEN(Model1_FMT),
+    .FormatMode = Reflex_FormatMode_Param,
+};
+
+typedef struct {
+    int32_t     V0;
+    char        V1[32];
+    uint8_t     V2[8];
+    float       V3;
+} Model2;
+const Reflex_TypeParams Model2_FMT[] = {
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Int32, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 32, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float, 0, 0),
+};
+const Reflex_Schema Model2_SCHEMA = {
+    .Fmt = Model2_FMT,
+    .Len = REFLEX_TYPE_PARAMS_LEN(Model2_FMT),
+    .FormatMode = Reflex_FormatMode_Param,
+};
+
+Test_Result Test_Param(void) {
+    void* addressMap[64] = {0};
+    Reflex reflex = {0};
+    Model1 temp1;
+    Model2 temp2;
+
+    reflex.serializeCb = Reflex_checkAddress;
+    reflex.deserializeCb = Reflex_checkAddress;
+    reflex.FunctionMode = Reflex_FunctionMode_Callback;
+    reflex.Args = addressMap;
+
+    addressMap[0] = &temp1.V0;
+    addressMap[1] = &temp1.V1;
+    addressMap[2] = &temp1.V2;
+    addressMap[3] = &temp1.V3;
+    addressMap[4] = &temp1.V4;
+    reflex.Schema = &Model1_SCHEMA;
+    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
+
+    addressMap[0] = &temp2.V0;
+    addressMap[1] = &temp2.V1;
+    addressMap[2] = &temp2.V2;
+    addressMap[3] = &temp2.V3;
+    reflex.Schema = &Model2_SCHEMA;
+    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
+
+    return 0;
+}
+#endif
 // -------------- Primary Models --------------
+#if REFLEX_FORMAT_MODE_PRIMARY
+
 typedef struct {
     uint32_t    X;
     float       Y;
@@ -152,7 +270,7 @@ const Reflex_Schema PrimaryTemp4_SCHEMA = {
 };
 
 
-Test_Result Test_Primary_Serielize(void) {
+Test_Result Test_Primary(void) {
     void* addressMap[64] = {0};
     Reflex reflex = {0};
 
@@ -170,23 +288,23 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[1] = &temp1.Y;
     addressMap[2] = &temp1.Z;
     reflex.Schema = &PrimaryTemp1_SCHEMA;
-    Reflex_serialize(&reflex, &temp1);
-    Reflex_deserialize(&reflex, &temp1);
+    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
 
     addressMap[0] = &temp2.X;
     addressMap[1] = &temp2.Y;
     addressMap[2] = &temp2.Z;
     reflex.Schema = &PrimaryTemp2_SCHEMA;
-    Reflex_serialize(&reflex, &temp2);
-    Reflex_deserialize(&reflex, &temp2);
+    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
 
     addressMap[0] = &temp3.A;
     addressMap[1] = &temp3.B;
     addressMap[2] = &temp3.C;
     addressMap[3] = &temp3.D;
     reflex.Schema = &PrimaryTemp3_SCHEMA;
-    Reflex_serialize(&reflex, &temp3);
-    Reflex_deserialize(&reflex, &temp3);
+    assert(Num, Reflex_serialize(&reflex, &temp3), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp3), REFLEX_OK);
 
     addressMap[0] = &temp4.V0;
     addressMap[1] = &temp4.V1;
@@ -201,51 +319,34 @@ Test_Result Test_Primary_Serielize(void) {
     addressMap[10] = &temp4.V10;
     addressMap[11] = &temp4.V11;
     reflex.Schema = &PrimaryTemp4_SCHEMA;
-    Reflex_serialize(&reflex, &temp4);
-    Reflex_deserialize(&reflex, &temp4);
+    assert(Num, Reflex_serialize(&reflex, &temp4), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp4), REFLEX_OK);
 
     return 0;
 }
-// ----------------------------- Test Serielize ---------------------
-typedef struct {
-    uint8_t*        V0;
-    char            V1[10];
-    uint32_t        V2;
-    char*           V3[4];
-    char            V4[4][32];
-} Model1;
-const Reflex_TypeParams Model1_FMT[] = {
-    REFLEX_TYPE_PARAMS(Reflex_Type_Pointer_UInt8, 0, 0),
-    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 10, 0),
-    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt32, 0, 0),
-    REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4, 0),
-    REFLEX_TYPE_PARAMS(Reflex_Type_Array2D_Char, 4, 32),
-};
-const Reflex_Schema Model1_SCHEMA = {
-    .Fmt = Model1_FMT,
-    .Len = REFLEX_TYPE_PARAMS_LEN(Model1_FMT),
-    .FormatMode = Reflex_FormatMode_Param,
-};
+#endif
+// ---------------------- Test Params Offset --------------------
+#if REFLEX_FORMAT_MODE_OFFSET
 
-typedef struct {
-    int32_t     V0;
-    char        V1[32];
-    uint8_t     V2[8];
-    float       V3;
-} Model2;
-const Reflex_TypeParams Model2_FMT[] = {
-    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Int32, 0, 0),
-    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 32, 0),
-    REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8, 0),
-    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float, 0, 0),
+const Reflex_TypeParams Model1_FMT_OFFSET[] = {
+    REFLEX_TYPE_PARAMS_OFFSET(Reflex_Type_Pointer_UInt8, 0, 0, Model1, V0),
+    REFLEX_TYPE_PARAMS_OFFSET(Reflex_Type_Array_Char, 10, 0, Model1, V1),
+    REFLEX_TYPE_PARAMS_OFFSET(Reflex_Type_Primary_UInt32, 0, 0, Model1, V2),
+    REFLEX_TYPE_PARAMS_OFFSET(Reflex_Type_PointerArray_Char, 4, 0, Model1, V3),
+    REFLEX_TYPE_PARAMS_OFFSET(Reflex_Type_Array2D_Char, 4, 32, Model1, V4),
 };
-const Reflex_Schema Model2_SCHEMA = {
-    .Fmt = Model2_FMT,
-    .Len = REFLEX_TYPE_PARAMS_LEN(Model2_FMT),
-    .FormatMode = Reflex_FormatMode_Param,
-};
+const Reflex_Schema Model1_SCHEMA_OFFSET = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model1_FMT_OFFSET);
 
-Test_Result Test_Serde(void) {
+const Reflex_TypeParams Model2_FMT_OFFSET[] = {
+    REFLEX_TYPE_PARAMS_OFFSET(Reflex_Type_Primary_Int32, 0, 0, Model2, V0),
+    REFLEX_TYPE_PARAMS_OFFSET(Reflex_Type_Array_Char, 32, 0, Model2, V1),
+    REFLEX_TYPE_PARAMS_OFFSET(Reflex_Type_Array_UInt8, 8, 0, Model2, V2),
+    REFLEX_TYPE_PARAMS_OFFSET(Reflex_Type_Primary_Float, 0, 0, Model2, V3),
+};
+const Reflex_Schema Model2_SCHEMA_OFFSET = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model2_FMT_OFFSET);
+
+
+Test_Result Test_ParamsOffset(void) {
     void* addressMap[64] = {0};
     Reflex reflex = {0};
     Model1 temp1;
@@ -261,47 +362,106 @@ Test_Result Test_Serde(void) {
     addressMap[2] = &temp1.V2;
     addressMap[3] = &temp1.V3;
     addressMap[4] = &temp1.V4;
-    reflex.Schema = &Model1_SCHEMA;
-    Reflex_serialize(&reflex, &temp1);
-    Reflex_deserialize(&reflex, &temp1);
+    reflex.Schema = &Model1_SCHEMA_OFFSET;
+    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
 
     addressMap[0] = &temp2.V0;
     addressMap[1] = &temp2.V1;
     addressMap[2] = &temp2.V2;
     addressMap[3] = &temp2.V3;
-    reflex.Schema = &Model2_SCHEMA;
-    Reflex_serialize(&reflex, &temp2);
-    Reflex_deserialize(&reflex, &temp2);
+    reflex.Schema = &Model2_SCHEMA_OFFSET;
+    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
 
     return 0;
 }
+
+#endif
+// ---------------------- Test Custom Type Params  ----------------------
+#if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
+
+typedef struct {
+    REFLEX_TYPE_PARAMS_STRUCT();
+    uint32_t        V0;
+    uint8_t         V1;
+} CustomTypeParams1;
+
+typedef struct {
+    Reflex_TypeParams   TypeParams;
+    uint32_t            V0;
+    uint8_t             V1;
+    const char*         V2;
+} CustomTypeParams2;
+
+const CustomTypeParams1 Model1_CFMT[] = {
+    REFLEX_TYPE_PARAMS(Reflex_Type_Pointer_UInt8, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 10, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt32, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array2D_Char, 4, 32),
+};
+const Reflex_Schema Model1_CSCHEMA = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model1_CFMT);
+
+const CustomTypeParams2 Model2_CFMT[] = {
+    { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Int32, 0, 0), },
+    { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 32, 0), },
+    { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8, 0), },
+    { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float, 0, 0), },
+};
+const Reflex_Schema Model2_CSCHEMA = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model2_CFMT);
+
+Test_Result Test_CustomTypeParams(void) {
+    void* addressMap[64] = {0};
+    Reflex reflex = {0};
+    Model1 temp1;
+    Model2 temp2;
+
+    reflex.serializeCb = Reflex_checkAddress;
+    reflex.deserializeCb = Reflex_checkAddress;
+    reflex.FunctionMode = Reflex_FunctionMode_Callback;
+    reflex.Args = addressMap;
+
+    addressMap[0] = &temp1.V0;
+    addressMap[1] = &temp1.V1;
+    addressMap[2] = &temp1.V2;
+    addressMap[3] = &temp1.V3;
+    addressMap[4] = &temp1.V4;
+    reflex.Schema = &Model1_CSCHEMA;
+    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
+
+    addressMap[0] = &temp2.V0;
+    addressMap[1] = &temp2.V1;
+    addressMap[2] = &temp2.V2;
+    addressMap[3] = &temp2.V3;
+    reflex.Schema = &Model2_CSCHEMA;
+    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
+
+    return 0;
+}
+#endif
+
 // -------------------------- Test Size -------------------------
 Test_Result Test_Size(void) {
-    Reflex reflex = {0};
-    Model1 model1;
-    Model2 model2;
-    PrimaryTemp1 temp1;
-    PrimaryTemp2 temp2;
-    PrimaryTemp3 temp3;
-    PrimaryTemp4 temp4;
 
-    reflex.Schema = &Model1_SCHEMA;
-    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(model1));
+    assert(Num, Reflex_size(&Model1_SCHEMA, Reflex_SizeType_Normal), sizeof(Model1));
+    assert(Num, Reflex_size(&Model2_SCHEMA, Reflex_SizeType_Normal), sizeof(Model2));
+    assert(Num, Reflex_size(&PrimaryTemp1_SCHEMA, Reflex_SizeType_Normal), sizeof(PrimaryTemp1));
+    assert(Num, Reflex_size(&PrimaryTemp2_SCHEMA, Reflex_SizeType_Normal), sizeof(PrimaryTemp2));
+    assert(Num, Reflex_size(&PrimaryTemp3_SCHEMA, Reflex_SizeType_Normal), sizeof(PrimaryTemp3));
+    assert(Num, Reflex_size(&PrimaryTemp4_SCHEMA, Reflex_SizeType_Normal), sizeof(PrimaryTemp4));
 
-    reflex.Schema = &Model2_SCHEMA;
-    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(model2));
+#if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
+    assert(Num, Reflex_size(&Model1_CSCHEMA, Reflex_SizeType_Normal), sizeof(Model1));
+    assert(Num, Reflex_size(&Model2_CSCHEMA, Reflex_SizeType_Normal), sizeof(Model2));
+#endif
 
-    reflex.Schema = &PrimaryTemp1_SCHEMA;
-    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(temp1));
-
-    reflex.Schema = &PrimaryTemp2_SCHEMA;
-    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(temp2));
-
-    reflex.Schema = &PrimaryTemp3_SCHEMA;
-    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(temp3));
-
-    reflex.Schema = &PrimaryTemp4_SCHEMA;
-    assert(Num, Reflex_size(&reflex, Reflex_SizeType_Normal), sizeof(temp4));
+#if REFLEX_FORMAT_MODE_OFFSET
+    assert(Num, Reflex_size(&Model1_SCHEMA_OFFSET, Reflex_SizeType_Normal), sizeof(Model1));
+    assert(Num, Reflex_size(&Model2_SCHEMA_OFFSET, Reflex_SizeType_Normal), sizeof(Model2));
+#endif
 
     return 0;
 }
@@ -312,7 +472,7 @@ void Result_print(Test_Result result) {
 
 Test_Result Assert_Num(int32_t val1, int32_t val2, uint16_t line) {
     if (val1 != val2) {
-        PRINTF("Assert Num: expected %d, found %d, Line: %d", val2, val1, line);
+        PRINTF("Assert Num: expected %d, found %d, Line: %d\r\n", val2, val1, line);
         return (Test_Result) line << 16;
     }
     else {
