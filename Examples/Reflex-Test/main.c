@@ -39,6 +39,9 @@ static const char FOOTER[] = "--------------------------------------------------
 #if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
     Test_Result Test_CustomTypeParams(void);
 #endif
+#if REFLEX_SUPPORT_COMPLEX_TYPE
+    Test_Result Test_ComplexType(void);
+#endif
 Test_Result Test_Size(void);
 
 #define TEST_CASE_INIT(NAME)        { .Name = #NAME, .fn = NAME }
@@ -55,6 +58,9 @@ const TestCase Tests[] = {
 #endif
 #if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
     TEST_CASE_INIT(Test_CustomTypeParams),
+#endif
+#if REFLEX_SUPPORT_COMPLEX_TYPE
+    TEST_CASE_INIT(Test_ComplexType),
 #endif
     TEST_CASE_INIT(Test_Size),
 };
@@ -99,13 +105,13 @@ void printTitle(uint8_t idx, const char* name) {
 Reflex_Result Reflex_checkAddress(Reflex* reflex, void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
     void** addressMap = reflex->Args;
 
-    if (addressMap[reflex->VariableIndex] != value) {
+    if (addressMap[Reflex_getVariableIndex(reflex)] != value) {
         PRINTF("Idx: %d, Address not match: %X != %X\r\n",
-            reflex->VariableIndex,
-            addressMap[reflex->VariableIndex],
+            Reflex_getVariableIndex(reflex),
+            addressMap[Reflex_getVariableIndex(reflex)],
             value
         );
-        return reflex->VariableIndex;
+        return 1;
     }
 
     return REFLEX_OK;
@@ -442,7 +448,85 @@ Test_Result Test_CustomTypeParams(void) {
     return 0;
 }
 #endif
+// ----------------------- Custom Object ------------------------
+#if REFLEX_SUPPORT_COMPLEX_TYPE
 
+typedef struct {
+    Model1      M1;
+    Model2      M2;
+} CModel1;
+const Reflex_TypeParams CModel1_FMT[] = {
+    REFLEX_TYPE_PARAMS_COMPLEX(Reflex_Type_Primary_Complex, 0, 0, &Model1_SCHEMA),
+    REFLEX_TYPE_PARAMS_COMPLEX(Reflex_Type_Primary_Complex, 0, 0, &Model2_SCHEMA),
+};
+const Reflex_Schema CModel1_SCHEMA = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, CModel1_FMT);
+
+typedef struct {
+    float       V0;
+    uint8_t     V1;
+    Model1      M1;
+    Model2      M2[2];
+    int16_t     V2;
+    uint8_t     V3;
+} CModel2;
+const Reflex_TypeParams CModel2_FMT[] = {
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt8, 0, 0),
+    REFLEX_TYPE_PARAMS_COMPLEX(Reflex_Type_Primary_Complex, 0, 0, &Model1_SCHEMA),
+    REFLEX_TYPE_PARAMS_COMPLEX(Reflex_Type_Array_Complex, 2, 0, &Model2_SCHEMA),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Int16, 0, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt8, 0, 0),
+};
+const Reflex_Schema CModel2_SCHEMA = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, CModel2_FMT);
+
+
+Test_Result Test_ComplexType(void) {
+    void* addressMap[64] = {0};
+    Reflex reflex = {0};
+    CModel1 temp1;
+    CModel2 temp2;
+
+    reflex.serializeCb = Reflex_checkAddress;
+    reflex.deserializeCb = Reflex_checkAddress;
+    reflex.FunctionMode = Reflex_FunctionMode_Callback;
+    reflex.Args = addressMap;
+
+    addressMap[0] = &temp1.M1.V0;
+    addressMap[1] = &temp1.M1.V1;
+    addressMap[2] = &temp1.M1.V2;
+    addressMap[3] = &temp1.M1.V3;
+    addressMap[4] = &temp1.M1.V4;
+    addressMap[5] = &temp1.M2.V0;
+    addressMap[6] = &temp1.M2.V1;
+    addressMap[7] = &temp1.M2.V2;
+    addressMap[8] = &temp1.M2.V3;
+    reflex.Schema = &CModel1_SCHEMA;
+    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
+
+    addressMap[0] = &temp2.V0;
+    addressMap[1] = &temp2.V1;
+    addressMap[2] = &temp2.M1.V0;
+    addressMap[3] = &temp2.M1.V1;
+    addressMap[4] = &temp2.M1.V2;
+    addressMap[5] = &temp2.M1.V3;
+    addressMap[6] = &temp2.M1.V4;
+    addressMap[7] = &temp2.M2[0].V0;
+    addressMap[8] = &temp2.M2[0].V1;
+    addressMap[9] = &temp2.M2[0].V2;
+    addressMap[10] = &temp2.M2[0].V3;
+    addressMap[11] = &temp2.M2[1].V0;
+    addressMap[12] = &temp2.M2[1].V1;
+    addressMap[13] = &temp2.M2[1].V2;
+    addressMap[14] = &temp2.M2[1].V3;
+    addressMap[15] = &temp2.V2;
+    addressMap[16] = &temp2.V3;
+    reflex.Schema = &CModel2_SCHEMA;
+    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
+    return 0;
+}
+#endif
 // -------------------------- Test Size -------------------------
 Test_Result Test_Size(void) {
 
