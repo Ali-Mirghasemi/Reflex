@@ -1,0 +1,4 @@
+[submodule "Examples/Reflex-Test-AVR"]
+	path = Examples/Reflex-Test-AVR
+	url = https://github.com/Ali-Mirghasemi/Reflex-Test-AVR
+	branch = master
