@@ -56,6 +56,9 @@ static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
 
 #if REFLEX_SUPPORT_COMPLEX_TYPE
     #define __biggestField_init()               Reflex_LenType biggestField = 0, tmpSize
+    #define __updateBiggestField(SIZE)          if (biggestField < (SIZE)) { \
+                                                    biggestField = (SIZE); \
+                                                } 
     #define __alignObject()                     reflex->PObj = Reflex_alignAddress(pobj, biggestField); \
                                                 if (reflex->AlignSize < biggestField) { \
                                                     reflex->AlignSize = biggestField; \
@@ -64,20 +67,19 @@ static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
 
     #define __startCheckComplexType(fmt)        if (fmt->Fields.Primary == Reflex_PrimaryType_Complex) { \
                                                     result = Reflex_Complex_scan(reflex, pobj, fmt, onField); \
-                                                    if (biggestField < reflex->AlignSize) { \
-                                                        biggestField = reflex->AlignSize; \
-                                                    } \
+                                                    __updateBiggestField(reflex->AlignSize); \
                                                     pobj = reflex->PObj; \
                                                 } \
                                                 else {
     #define __endCheckComplexType(fmt, helper)      tmpSize = (helper)->itemSize(fmt); \
-                                                    if (biggestField < tmpSize) { \
-                                                        biggestField = tmpSize; \
-                                                    } \
+                                                    __updateBiggestField(tmpSize); \
                                                 }
 #else
     #define __biggestField_init()
+    #define __updateBiggestField(SIZE)
     #define __alignObject()
+    #define __startCheckComplexType(fmt)
+    #define __endCheckComplexType(fmt, helper)
 #endif
 
 static const Reflex_ScanFn REFLEX_SCAN[] = {
@@ -139,10 +141,10 @@ static void* Reflex_alignAddress(void* pValue, Reflex_LenType objSize) {
 static Reflex_LenType Reflex_Primary_itemSize(const Reflex_TypeParams* fmt) {
     return PRIMARY_TYPE_SIZE[fmt->Fields.Primary];
 }
-static void* Reflex_Primary_alignAddress(void* pValue, Reflex_TypeParams* fmt) {
+static void* Reflex_Primary_alignAddress(void* pValue, const Reflex_TypeParams* fmt) {
     return Reflex_alignAddress(pValue, PRIMARY_TYPE_SIZE[fmt->Fields.Primary]);
 }
-static void* Reflex_Primary_moveAddress(void* pValue, Reflex_TypeParams* fmt) {
+static void* Reflex_Primary_moveAddress(void* pValue, const Reflex_TypeParams* fmt) {
     uint8_t objSize = PRIMARY_TYPE_SIZE[fmt->Fields.Primary];
     return (uint8_t*) pValue + objSize;
 }
@@ -150,10 +152,10 @@ static void* Reflex_Primary_moveAddress(void* pValue, Reflex_TypeParams* fmt) {
 static Reflex_LenType Reflex_Pointer_itemSize(const Reflex_TypeParams* fmt) {
     return sizeof(void*);
 }
-static void* Reflex_Pointer_alignAddress(void* pValue, Reflex_TypeParams* fmt) {
+static void* Reflex_Pointer_alignAddress(void* pValue, const Reflex_TypeParams* fmt) {
     return Reflex_alignAddress(pValue, sizeof(void*));
 }
-static void* Reflex_Pointer_moveAddress(void* pValue, Reflex_TypeParams* fmt) {
+static void* Reflex_Pointer_moveAddress(void* pValue, const Reflex_TypeParams* fmt) {
     uint8_t objSize = sizeof(void*);
     return (uint8_t*) pValue + objSize;
 }
@@ -161,7 +163,7 @@ static void* Reflex_Pointer_moveAddress(void* pValue, Reflex_TypeParams* fmt) {
 #define Reflex_Array_itemSize Reflex_Primary_itemSize
 #define Reflex_Array_alignAddress Reflex_Primary_alignAddress
 
-static void* Reflex_Array_moveAddress(void* pValue, Reflex_TypeParams* fmt) {
+static void* Reflex_Array_moveAddress(void* pValue, const Reflex_TypeParams* fmt) {
     uint8_t objSize = PRIMARY_TYPE_SIZE[fmt->Fields.Primary] * fmt->Len;
     return (uint8_t*) pValue + objSize;
 }
@@ -169,7 +171,7 @@ static void* Reflex_Array_moveAddress(void* pValue, Reflex_TypeParams* fmt) {
 #define Reflex_PointerArray_itemSize Reflex_Pointer_itemSize
 #define Reflex_PointerArray_alignAddress Reflex_Pointer_alignAddress
 
-static void* Reflex_PointerArray_moveAddress(void* pValue, Reflex_TypeParams* fmt) {
+static void* Reflex_PointerArray_moveAddress(void* pValue, const Reflex_TypeParams* fmt) {
     uint8_t objSize = sizeof(void*) * fmt->Len;
     return (uint8_t*) pValue + objSize;
 }
@@ -177,7 +179,7 @@ static void* Reflex_PointerArray_moveAddress(void* pValue, Reflex_TypeParams* fm
 #define Reflex_Array2D_itemSize Reflex_Primary_itemSize
 #define Reflex_Array2D_alignAddress Reflex_Primary_alignAddress
 
-static void* Reflex_Array2D_moveAddress(void* pValue, Reflex_TypeParams* fmt) {
+static void* Reflex_Array2D_moveAddress(void* pValue, const Reflex_TypeParams* fmt) {
     uint8_t objSize = PRIMARY_TYPE_SIZE[fmt->Fields.Primary] * fmt->Len * fmt->MLen;
     return (uint8_t*) pValue + objSize;
 }
@@ -286,6 +288,7 @@ Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj, Reflex_FieldFn onFi
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const uint8_t* pfmt = reflex->Schema->PrimaryFmt;
+    __biggestField_init();
     reflex->VariableIndex = 0;
     reflex->Obj = obj;
 
@@ -298,10 +301,12 @@ Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj, Reflex_FieldFn onFi
         if (onField) {
             result = onField(reflex, pobj, &fmt);
         }
+        __updateBiggestField(PRIMARY_TYPE_SIZE[fmt.Fields.Primary]);
+        reflex->VariableIndex++;
         // move pobj
         pobj = helper->moveAddress(pobj, &fmt);
-        reflex->VariableIndex++;
     }
+    __alignObject();
 
     return result;
 }
@@ -395,7 +400,6 @@ Reflex_Result Reflex_Offset_deserialize(Reflex* reflex, void* obj) {
 
 Reflex_LenType Reflex_Offset_sizeNormal(const Reflex_Schema* schema) {
     uint8_t* pobj = (uint8_t*) 0;
-    const Reflex_Type_Helper* helper;
     const Reflex_TypeParams* fmt = schema->Fmt;
     Reflex_LenType len = schema->Len;
     Reflex_LenType objsize = 0;
@@ -403,7 +407,6 @@ Reflex_LenType Reflex_Offset_sizeNormal(const Reflex_Schema* schema) {
     __isCustom_init(schema);
 
     while (len-- > 0) {
-        helper = &REFLEX_HELPER[fmt->Fields.Category];
         if (objsize < PRIMARY_TYPE_SIZE[fmt->Fields.Primary]) {
             objsize = PRIMARY_TYPE_SIZE[fmt->Fields.Primary];
         }
@@ -415,7 +418,7 @@ Reflex_LenType Reflex_Offset_sizeNormal(const Reflex_Schema* schema) {
         __nextFmt(schema, fmt);
     }
     // max offset + size
-    pobj = maxOffset->Offset + REFLEX_HELPER[maxOffset->Fields.Category].itemSize(maxOffset);
+    pobj = (uint8_t*) (maxOffset->Offset + REFLEX_HELPER[maxOffset->Fields.Category].itemSize(maxOffset));
     // align to biggest field
     pobj = Reflex_alignAddress(pobj, objsize);
 
@@ -457,14 +460,14 @@ static Reflex_Result Reflex_Complex_Primary_scan(Reflex* reflex, void* obj, cons
 static Reflex_Result Reflex_Complex_Pointer_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_FieldFn onField) {
     Reflex_Result res;
     const Reflex_Schema* tmpSchema = reflex->Schema;
-    void* tmpObj = reflex->Obj;
 
     reflex->VariableIndexOffset += reflex->VariableIndex;
     reflex->Schema = fmt->Schema;
-    res = REFLEX_SCAN[(uint8_t) reflex->Schema->FormatMode](reflex, obj, onField);
+    res = REFLEX_SCAN[(uint8_t) reflex->Schema->FormatMode](reflex, *(void**) obj, onField);
     reflex->Schema = tmpSchema;
+    reflex->Obj = obj;
     // move obj
-    reflex->PObj = Reflex_Pointer_moveAddress(tmpObj, fmt);
+    reflex->PObj = Reflex_Pointer_moveAddress(obj, fmt);
     return res;
 }
 
