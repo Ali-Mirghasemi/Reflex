@@ -108,14 +108,18 @@ void printTitle(uint8_t idx, const char* name) {
     PRINTLN(temp);
 }
 
-// ---------------- Test Serialize ---------------
+// ---------------- Test Driver ---------------
 // define address map globally for prevent stack overflow
 static void* addressMap[120] = {0};
 
-Reflex_Result Reflex_checkAddress(Reflex* reflex, void* out, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType len2) {
+Reflex_Result Reflex_checkAddress(Reflex* reflex, void* value, const Reflex_TypeParams* fmt) {
     void** addrMap = reflex->Args;
 
-    if (addrMap[Reflex_getVariableIndex(reflex)] != value) {
+    if ( addrMap[Reflex_getVariableIndex(reflex)] != value
+    #if REFLEX_SUPPORT_COMPLEX_TYPE
+        && fmt->Fields.Primary != Reflex_PrimaryType_Complex
+    #endif
+    ) {
         PRINTF("Idx: %d, Address not match: %X != %X\r\n",
             Reflex_getVariableIndex(reflex),
             addrMap[Reflex_getVariableIndex(reflex)],
@@ -164,10 +168,8 @@ Test_Result Test_Param(void) {
     Model1 temp1;
     Model2 temp2;
 
-    reflex.serializeCb = Reflex_checkAddress;
-    reflex.deserializeCb = Reflex_checkAddress;
-    reflex.FunctionMode = Reflex_FunctionMode_Callback;
-    reflex.Args = addressMap;
+    Reflex_setCallback(&reflex, Reflex_checkAddress);
+    Reflex_setArgs(&reflex, addressMap);
 
     addressMap[0] = &temp1.V0;
     addressMap[1] = &temp1.V1;
@@ -175,16 +177,16 @@ Test_Result Test_Param(void) {
     addressMap[3] = &temp1.V3;
     addressMap[4] = &temp1.V4;
     reflex.Schema = &Model1_SCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp1), REFLEX_OK);
+
 
     addressMap[0] = &temp2.V0;
     addressMap[1] = &temp2.V1;
     addressMap[2] = &temp2.V2;
     addressMap[3] = &temp2.V3;
     reflex.Schema = &Model2_SCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp2), REFLEX_OK);
+    
 
     return 0;
 }
@@ -272,32 +274,30 @@ Test_Result Test_Primary(void) {
     PrimaryTemp3 temp3;
     PrimaryTemp4 temp4;
 
-    reflex.serializeCb = Reflex_checkAddress;
-    reflex.deserializeCb = Reflex_checkAddress;
-    reflex.FunctionMode = Reflex_FunctionMode_Callback;
-    reflex.Args = addressMap;
+    Reflex_setCallback(&reflex, Reflex_checkAddress);
+    Reflex_setArgs(&reflex, addressMap);
 
     addressMap[0] = &temp1.X;
     addressMap[1] = &temp1.Y;
     addressMap[2] = &temp1.Z;
     reflex.Schema = &PrimaryTemp1_SCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp1), REFLEX_OK);
+
 
     addressMap[0] = &temp2.X;
     addressMap[1] = &temp2.Y;
     addressMap[2] = &temp2.Z;
     reflex.Schema = &PrimaryTemp2_SCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp2), REFLEX_OK);
+    
 
     addressMap[0] = &temp3.A;
     addressMap[1] = &temp3.B;
     addressMap[2] = &temp3.C;
     addressMap[3] = &temp3.D;
     reflex.Schema = &PrimaryTemp3_SCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp3), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp3), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp3), REFLEX_OK);
+    
 
     addressMap[0] = &temp4.V0;
     addressMap[1] = &temp4.V1;
@@ -312,8 +312,8 @@ Test_Result Test_Primary(void) {
     addressMap[10] = &temp4.V10;
     addressMap[11] = &temp4.V11;
     reflex.Schema = &PrimaryTemp4_SCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp4), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp4), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp4), REFLEX_OK);
+    
 
     return 0;
 }
@@ -344,10 +344,8 @@ Test_Result Test_ParamsOffset(void) {
     Model1 temp1;
     Model2 temp2;
 
-    reflex.serializeCb = Reflex_checkAddress;
-    reflex.deserializeCb = Reflex_checkAddress;
-    reflex.FunctionMode = Reflex_FunctionMode_Callback;
-    reflex.Args = addressMap;
+    Reflex_setCallback(&reflex, Reflex_checkAddress);
+    Reflex_setArgs(&reflex, addressMap);
 
     addressMap[0] = &temp1.V0;
     addressMap[1] = &temp1.V1;
@@ -355,16 +353,16 @@ Test_Result Test_ParamsOffset(void) {
     addressMap[3] = &temp1.V3;
     addressMap[4] = &temp1.V4;
     reflex.Schema = &Model1_SCHEMA_OFFSET;
-    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp1), REFLEX_OK);
+
 
     addressMap[0] = &temp2.V0;
     addressMap[1] = &temp2.V1;
     addressMap[2] = &temp2.V2;
     addressMap[3] = &temp2.V3;
     reflex.Schema = &Model2_SCHEMA_OFFSET;
-    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp2), REFLEX_OK);
+    
 
     return 0;
 }
@@ -408,10 +406,8 @@ Test_Result Test_CustomTypeParams(void) {
     Model1 temp1;
     Model2 temp2;
 
-    reflex.serializeCb = Reflex_checkAddress;
-    reflex.deserializeCb = Reflex_checkAddress;
-    reflex.FunctionMode = Reflex_FunctionMode_Callback;
-    reflex.Args = addressMap;
+    Reflex_setCallback(&reflex, Reflex_checkAddress);
+    Reflex_setArgs(&reflex, addressMap);
 
     addressMap[0] = &temp1.V0;
     addressMap[1] = &temp1.V1;
@@ -419,16 +415,16 @@ Test_Result Test_CustomTypeParams(void) {
     addressMap[3] = &temp1.V3;
     addressMap[4] = &temp1.V4;
     reflex.Schema = &Model1_CSCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp1), REFLEX_OK);
+
 
     addressMap[0] = &temp2.V0;
     addressMap[1] = &temp2.V1;
     addressMap[2] = &temp2.V2;
     addressMap[3] = &temp2.V3;
     reflex.Schema = &Model2_CSCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp2), REFLEX_OK);
+    
 
     return 0;
 }
@@ -504,10 +500,8 @@ Test_Result Test_ComplexType(void) {
     CModel2 temp2 = {0};
     CModel3 temp3 = {0};
 
-    reflex.serializeCb = Reflex_checkAddress;
-    reflex.deserializeCb = Reflex_checkAddress;
-    reflex.FunctionMode = Reflex_FunctionMode_Callback;
-    reflex.Args = addressMap;
+    Reflex_setCallback(&reflex, Reflex_checkAddress);
+    Reflex_setArgs(&reflex, addressMap);
 
     addressMap[0] = &temp1.M1.V0;
     addressMap[1] = &temp1.M1.V1;
@@ -519,8 +513,8 @@ Test_Result Test_ComplexType(void) {
     addressMap[7] = &temp1.M2.V2;
     addressMap[8] = &temp1.M2.V3;
     reflex.Schema = &CModel1_SCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp1), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp1), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp1), REFLEX_OK);
+
 
     addressMap[0]  = &temp2.V0;
     addressMap[1]  = &temp2.V1;
@@ -540,8 +534,8 @@ Test_Result Test_ComplexType(void) {
     addressMap[15] = &temp2.V2;
     addressMap[16] = &temp2.V3;
     reflex.Schema = &CModel2_SCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp2), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp2), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp2), REFLEX_OK);
+    
 
 
     addressMap[0]  = &temp3.V0;
@@ -660,8 +654,8 @@ Test_Result Test_ComplexType(void) {
     addressMap[113] = &temp3.V12.V2;
     addressMap[114] = &temp3.V12.V3;
     reflex.Schema = &CModel3_SCHEMA;
-    assert(Num, Reflex_serialize(&reflex, &temp3), REFLEX_OK);
-    assert(Num, Reflex_deserialize(&reflex, &temp3), REFLEX_OK);
+    assert(Num, Reflex_scan(&reflex, &temp3), REFLEX_OK);
+    
 
     return 0;
 }
