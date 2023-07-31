@@ -45,7 +45,8 @@ extern "C" {
 #define REFLEX_SUPPORT_DOUBLE               1
 #define REFLEX_SUPPORT_COMPLEX_TYPE         1
 #define REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS   1
-
+#define REFLEX_SUPPORT_ARGS                 1
+#define REFLEX_SUPPORT_BUFFER               1
 
 typedef int16_t Reflex_LenType;
 
@@ -55,14 +56,27 @@ typedef uint32_t Reflex_Result;
 
 /********************************************************************************************/
 
+#define __REFLEX_VER_STR(major, minor, fix)     #major "." #minor "." #fix
+#define _REFLEX_VER_STR(major, minor, fix)      __REFLEX_VER_STR(major, minor, fix)
+/**
+ * @brief show reflex version in string format
+ */
+#define REFLEX_VER_STR                          _REFLEX_VER_STR(REFLEX_VER_MAJOR, REFLEX_VER_MINOR, REFLEX_VER_FIX)
+/**
+ * @brief show REFLEX version in integer format, ex: 0.2.0 -> 200
+ */
+#define REFLEX_VER                              ((REFLEX_VER_MAJOR * 10000UL) + (REFLEX_VER_MINOR * 100UL) + (REFLEX_VER_FIX))
+
 /* Pre-Defined data types */
 struct __Reflex;
 typedef struct __Reflex Reflex;
+struct __Reflex_TypeParams;
+typedef struct __Reflex_TypeParams Reflex_TypeParams;
 struct __Reflex_Schema;
 typedef struct __Reflex_Schema Reflex_Schema;
 
-#define REFLEX_OK           0
-#define REFLEX_ARCH_BYTES   (REFLEX_ARCH / 8)
+#define REFLEX_OK                               0
+#define REFLEX_ARCH_BYTES                       (REFLEX_ARCH / 8)
 
 /* Supportive Macros */
 #if REFLEX_FORMAT_MODE_OFFSET
@@ -127,10 +141,10 @@ typedef enum {
 #define REFLEX_TYPE(CAT, TY)         Reflex_Type_ ##CAT ##_ ##TY = Reflex_Category_ ##CAT << 5 | Reflex_PrimaryType_ ##TY
 
 /**
- * @brief Reflex type that user can use 
+ * @brief Reflex type that user can use
  * format: Reflex_Type_<Category>_<PrimaryType>
  * ex: Reflex_Type_Pointer_UInt8
- * 
+ *
  */
 typedef enum {
     // ------------- Primary Types --------------
@@ -248,79 +262,47 @@ typedef union {
 } Reflex_Type_BitFields;
 
 /**
- * @brief This function used for serialize specific type and field
+ * @brief This function callback used for scan all of object fields
+ *
  */
-typedef Reflex_Result (*Reflex_SerializeFn)(Reflex* reflex, void* buf, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType mLen);
-/**
- * @brief This function used for deserialize specific type and field
- */
-typedef Reflex_Result (*Reflex_DeserializeFn)(Reflex* reflex, void* buf, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType mLen);
+typedef Reflex_Result (*Reflex_OnFieldFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
 
 typedef union {
-    Reflex_SerializeFn      fn[Reflex_PrimaryType_Length];
+    Reflex_OnFieldFn      fn[Reflex_PrimaryType_Length];
     struct {
-        Reflex_SerializeFn  serializeUnknown;
-        Reflex_SerializeFn  serializeChar;
-        Reflex_SerializeFn  serializeUInt8;
-        Reflex_SerializeFn  serializeInt8;
-        Reflex_SerializeFn  serializeUInt16;
-        Reflex_SerializeFn  serializeInt16;
-        Reflex_SerializeFn  serializeUInt32;
-        Reflex_SerializeFn  serializeInt32;
+        Reflex_OnFieldFn  fnUnknown;
+        Reflex_OnFieldFn  fnChar;
+        Reflex_OnFieldFn  fnUInt8;
+        Reflex_OnFieldFn  fnInt8;
+        Reflex_OnFieldFn  fnUInt16;
+        Reflex_OnFieldFn  fnInt16;
+        Reflex_OnFieldFn  fnUInt32;
+        Reflex_OnFieldFn  fnInt32;
     #if REFLEX_SUPPORT_64BIT_INT
-        Reflex_SerializeFn  serializeUInt64;
-        Reflex_SerializeFn  serializeInt64;
+        Reflex_OnFieldFn  fnUInt64;
+        Reflex_OnFieldFn  fnInt64;
     #endif
-        Reflex_SerializeFn  serializeFloat;
+        Reflex_OnFieldFn  fnFloat;
     #if REFLEX_SUPPORT_DOUBLE
-        Reflex_SerializeFn  serializeDouble;
+        Reflex_OnFieldFn  fnDouble;
+    #endif
+    #if REFLEX_SUPPORT_COMPLEX_TYPE
+        Reflex_OnFieldFn  fnComplexBegin;
+        Reflex_OnFieldFn  fnComplexEnd;
     #endif
     };
-} Reflex_SerializeFunctions;
+} Reflex_ScanFunctions;
 
 typedef union {
-    const Reflex_SerializeFunctions*      Category[Reflex_Category_Length];
+    const Reflex_ScanFunctions*      Category[Reflex_Category_Length];
     struct {
-        const Reflex_SerializeFunctions*  Primary;
-        const Reflex_SerializeFunctions*  Pointer;
-        const Reflex_SerializeFunctions*  Array;
-        const Reflex_SerializeFunctions*  PointerArray;
-        const Reflex_SerializeFunctions*  Array2D;
+        const Reflex_ScanFunctions*  Primary;
+        const Reflex_ScanFunctions*  Pointer;
+        const Reflex_ScanFunctions*  Array;
+        const Reflex_ScanFunctions*  PointerArray;
+        const Reflex_ScanFunctions*  Array2D;
     };
-} Reflex_SerializeDriver;
-
-typedef union {
-    Reflex_DeserializeFn      fn[Reflex_PrimaryType_Length];
-    struct {
-        Reflex_DeserializeFn  deserializeUnknown;
-        Reflex_DeserializeFn  deserializeChar;
-        Reflex_DeserializeFn  deserializeUInt8;
-        Reflex_DeserializeFn  deserializeInt8;
-        Reflex_DeserializeFn  deserializeUInt16;
-        Reflex_DeserializeFn  deserializeInt16;
-        Reflex_DeserializeFn  deserializeUInt32;
-        Reflex_DeserializeFn  deserializeInt32;
-    #if REFLEX_SUPPORT_64BIT_INT
-        Reflex_DeserializeFn  deserializeUInt64;
-        Reflex_DeserializeFn  deserializeInt64;
-    #endif
-        Reflex_DeserializeFn  deserializeFloat;
-    #if REFLEX_SUPPORT_DOUBLE
-        Reflex_DeserializeFn  deserializeDouble;
-    #endif
-    };
-} Reflex_DeserializeFunctions;
-
-typedef union {
-    const Reflex_DeserializeFunctions*      Category[Reflex_Category_Length];
-    struct {
-        const Reflex_DeserializeFunctions*  Primary;
-        const Reflex_DeserializeFunctions*  Pointer;
-        const Reflex_DeserializeFunctions*  Array;
-        const Reflex_DeserializeFunctions*  PointerArray;
-        const Reflex_DeserializeFunctions*  Array2D;
-    };
-} Reflex_DeserializeDriver;
+} Reflex_ScanDriver;
 
 #define REFLEX_TYPE_PARAMS_STRUCT()     Reflex_LenType              Len;       /*< Used for Array Length, Array2D Row Length, Sizeof Struct, Sizeof Enum, Sizeof Union*/ \
                                         Reflex_LenType              MLen;      /*< Used for Array2D Columns Length */ \
@@ -331,9 +313,9 @@ typedef union {
                                         __REFLEX_TYPE_PARAM_FIELD_COMPLEX();    \
                                         __REFLEX_TYPE_PARAMS_FIELD_OFFSET()
 
-typedef struct {
+struct __Reflex_TypeParams {
     REFLEX_TYPE_PARAMS_STRUCT();
-} Reflex_TypeParams;
+};
 
 #define REFLEX_TYPE_PARAMS(TY, LEN, MLEN)               {                 \
                                                             .Type = TY,   \
@@ -356,7 +338,7 @@ typedef struct {
                                                             .Len = LEN,   \
                                                             .MLen = MLEN, \
                                                             .Schema = C,  \
-                                                        }                                                                                                        
+                                                        }
 
 #define REFLEX_TYPE_PARAMS_LEN(ARR)                     (sizeof(ARR) / sizeof(ARR[0]))
 
@@ -391,7 +373,7 @@ struct __Reflex_Schema {
     };
     Reflex_LenType                      Len;                            /**< number of variables */
     __REFLEX_SCHEMA_FIELD_FMT_SIZE();                                   /**< size of custom type params, it's used for custom type params */
-    uint8_t                             FormatMode          : 2;        /**< Reflex Serialize FunctionMode */
+    uint8_t                             FormatMode          : 2;        /**< Reflex Driver FunctionMode */
     uint8_t                             Reserved            : 6;
 };
 
@@ -400,28 +382,20 @@ struct __Reflex_Schema {
                                                     .CustomFmt = FMT,   \
                                                     .Len = REFLEX_TYPE_PARAMS_LEN(FMT), \
                                                     __REFLEX_SCHEMA_FIELD_FMT_SIZE_INIT(FMT) \
-                                                }                                       
-
-/**
- * @brief This function callback used for scan all of object fields 
- * 
- */
-typedef Reflex_Result (*Reflex_FieldFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
+                                                }
 
 struct __Reflex {
+#if REFLEX_SUPPORT_ARGS
     void*                                   Args;
+#endif
+#if REFLEX_SUPPORT_BUFFER
     void*                                   Buffer;
+#endif
     void*                                   Obj;
     union {
-        Reflex_SerializeFn                  serializeCb;
-        const Reflex_SerializeDriver*       Serialize;
-        const Reflex_SerializeFunctions*    SerializeFns;
-        
-    };
-    union {
-        Reflex_DeserializeFn                deserializeCb;
-        const Reflex_DeserializeDriver*     Deserialize;
-        const Reflex_DeserializeFunctions*  DeserializeFns;
+        Reflex_OnFieldFn                    onField;
+        const Reflex_ScanDriver*            Driver;
+        const Reflex_ScanFunctions*         CompactFns;
     };
     const Reflex_Schema*                    Schema;
 #if REFLEX_SUPPORT_COMPLEX_TYPE
@@ -430,55 +404,61 @@ struct __Reflex {
     Reflex_LenType                          VariableIndexOffset;
 #endif
     Reflex_LenType                          VariableIndex;
-    uint8_t                                 FunctionMode        : 2;        /**< Reflex Serialize FunctionMode, for PrimaryFmt it's optional */
+    uint8_t                                 FunctionMode        : 2;        /**< Reflex Driver FunctionMode, for PrimaryFmt it's optional */
     uint8_t                                 Reserved            : 6;
 };
 
 // ---------------------- Main API ----------------------
-Reflex_Result Reflex_scan(Reflex* reflex, void* obj, Reflex_FieldFn onField);
-Reflex_Result Reflex_serialize(Reflex* reflex, void* obj);
-Reflex_Result Reflex_deserialize(Reflex* reflex, void* obj);
+Reflex_Result Reflex_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
+Reflex_Result Reflex_scan(Reflex* reflex, void* obj);
 Reflex_LenType Reflex_size(const Reflex_Schema* schema, Reflex_SizeType type);
 Reflex_LenType Reflex_sizeType(const Reflex_TypeParams* fmt);
 // ------------------- Utils Functions ------------------
+void Reflex_setCallback(Reflex* reflex, Reflex_OnFieldFn fn);
+void Reflex_setDriver(Reflex* reflex, const Reflex_ScanDriver* driver);
+void Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact);
+
 Reflex_LenType Reflex_getVariableIndex(Reflex* reflex);
 Reflex_LenType Reflex_getVariablesLength(Reflex* reflex);
 void*          Reflex_getMainVariable(Reflex* reflex);
 
-// ------------------------ Scan Functions ----------------------
-#if REFLEX_FORMAT_MODE_PARAM
-    Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj, Reflex_FieldFn onField);
-#endif
-#if REFLEX_FORMAT_MODE_PRIMARY
-    Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj, Reflex_FieldFn onField);
-#endif
-#if REFLEX_FORMAT_MODE_OFFSET
-    Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj, Reflex_FieldFn onField);
-#endif
-#if REFLEX_SUPPORT_COMPLEX_TYPE
-    Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_FieldFn onField);
-#endif
-// --------------------- Serialize Functions -------------------
-#if REFLEX_FORMAT_MODE_PARAM
-    Reflex_Result Reflex_Param_serialize(Reflex* reflex, void* obj);
-#endif
-#if REFLEX_FORMAT_MODE_PRIMARY
-    Reflex_Result Reflex_Primary_serialize(Reflex* reflex, void* obj);
-#endif
-#if REFLEX_FORMAT_MODE_OFFSET
-    Reflex_Result Reflex_Offset_serialize(Reflex* reflex, void* obj);
+#if REFLEX_SUPPORT_ARGS
+    void  Reflex_setArgs(Reflex* reflex, void* args);
+    void* Reflex_getArgs(Reflex* reflex);
 #endif
 
-// --------------------- Deserialize Functions -----------------
+#if REFLEX_SUPPORT_BUFFER
+    void  Reflex_setBuffer(Reflex* reflex, void* buf);
+    void* Reflex_getBuffer(Reflex* reflex);
+#endif
+
+// ------------------------ Scan Functions ----------------------
 #if REFLEX_FORMAT_MODE_PARAM
-Reflex_Result Reflex_Param_deserialize(Reflex* reflex, void* obj);
+    Reflex_Result Reflex_Param_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
 #endif
 #if REFLEX_FORMAT_MODE_PRIMARY
-    Reflex_Result Reflex_Primary_deserialize(Reflex* reflex, void* obj);
+    Reflex_Result Reflex_Primary_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
 #endif
 #if REFLEX_FORMAT_MODE_OFFSET
-    Reflex_Result Reflex_Offset_deserialize(Reflex* reflex, void* obj);
+    Reflex_Result Reflex_Offset_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
 #endif
+#if REFLEX_SUPPORT_COMPLEX_TYPE
+    Reflex_Result Reflex_Complex_scanRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
+#endif
+// --------------------- Driver Functions -------------------
+#if REFLEX_FORMAT_MODE_PARAM
+    Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj);
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+    Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj);
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+    Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj);
+#endif
+#if REFLEX_SUPPORT_COMPLEX_TYPE
+    Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
+#endif
+
 // ------------------------ Size Functions --------------------
 #if REFLEX_FORMAT_MODE_PARAM
     Reflex_LenType Reflex_Param_sizeNormal(const Reflex_Schema* schema);

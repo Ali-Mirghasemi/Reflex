@@ -4,12 +4,11 @@
 typedef void* (*Reflex_AlignAddressFn)(void* pValue, const Reflex_TypeParams* fmt);
 typedef void* (*Reflex_MoveAddressFn)(void* pValue, const Reflex_TypeParams* fmt);
 typedef Reflex_LenType (*Reflex_ItemSizeFn)(const Reflex_TypeParams* fmt);
-typedef Reflex_Result (*Reflex_ScanFn)(Reflex* reflex, void* obj, Reflex_FieldFn onField);
-typedef Reflex_Result (*Reflex_ComplexScanFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_FieldFn onField);
-typedef Reflex_Result (*Reflex_SerdeFn)(Reflex* reflex, void* obj);
+typedef Reflex_Result (*Reflex_ScanFn)(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
+typedef Reflex_Result (*Reflex_ComplexScanFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
 typedef Reflex_LenType (*Reflex_SizeFn)(const Reflex_Schema* schema);
 /**
- * @brief This struct hold helper functions for manage serialize and deserialize
+ * @brief This struct hold helper functions for manage scan
  */
 typedef struct {
     Reflex_AlignAddressFn    alignAddress;
@@ -18,12 +17,9 @@ typedef struct {
 } Reflex_Type_Helper;
 
 /* Private Functions */
-static Reflex_Result Reflex_serialize_Callback(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
-static Reflex_Result Reflex_serialize_Driver(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
-static Reflex_Result Reflex_serialize_Compact(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
-static Reflex_Result Reflex_deserialize_Callback(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
-static Reflex_Result Reflex_deserialize_Driver(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
-static Reflex_Result Reflex_deserialize_Compact(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
+static Reflex_Result Reflex_scan_Callback(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
+static Reflex_Result Reflex_scan_Driver(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
+static Reflex_Result Reflex_scan_Compact(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
 
 /* Private variables */
 static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
@@ -66,7 +62,7 @@ static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
 
 
     #define __startCheckComplexType(fmt)        if (fmt->Fields.Primary == Reflex_PrimaryType_Complex) { \
-                                                    result = Reflex_Complex_scan(reflex, pobj, fmt, onField); \
+                                                    result = Reflex_Complex_scanRaw(reflex, pobj, fmt, onField); \
                                                     __updateBiggestField(reflex->AlignSize); \
                                                     pobj = reflex->PObj; \
                                                 } \
@@ -84,26 +80,20 @@ static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
 
 static const Reflex_ScanFn REFLEX_SCAN[] = {
 #if REFLEX_FORMAT_MODE_PARAM
-    Reflex_Param_scan,
+    Reflex_Param_scanRaw,
 #endif
 #if REFLEX_FORMAT_MODE_PRIMARY
-    Reflex_Primary_scan,
+    Reflex_Primary_scanRaw,
 #endif
 #if REFLEX_FORMAT_MODE_OFFSET
-    Reflex_Offset_scan,
+    Reflex_Offset_scanRaw,
 #endif
 };
 
-static const Reflex_FieldFn REFLEX_SERIALIZE[3] = {
-    Reflex_serialize_Callback,
-    Reflex_serialize_Driver,
-    Reflex_serialize_Compact,
-};
-
-static const Reflex_FieldFn REFLEX_DESERIALIZE[3] = {
-    Reflex_deserialize_Callback,
-    Reflex_deserialize_Driver,
-    Reflex_deserialize_Compact,
+static const Reflex_OnFieldFn REFLEX_ON_FIELD_FNS[3] = {
+    Reflex_scan_Callback,
+    Reflex_scan_Driver,
+    Reflex_scan_Compact,
 };
 
 static const Reflex_SizeFn REFLEX_SIZE[3][2] = {
@@ -195,7 +185,7 @@ static const Reflex_Type_Helper REFLEX_HELPER[Reflex_Category_Length] = {
 };
 
 #if REFLEX_FORMAT_MODE_PARAM
-Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj, Reflex_FieldFn onField) {
+Reflex_Result Reflex_Param_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField) {
     Reflex_Result result = REFLEX_OK;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
@@ -229,12 +219,8 @@ Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj, Reflex_FieldFn onFiel
     return result;
 }
 
-Reflex_Result Reflex_Param_serialize(Reflex* reflex, void* obj) {
-    return Reflex_Param_scan(reflex, obj, REFLEX_SERIALIZE[reflex->FunctionMode]);
-}
-
-Reflex_Result Reflex_Param_deserialize(Reflex* reflex, void* obj) {
-    return Reflex_Param_scan(reflex, obj, REFLEX_DESERIALIZE[reflex->FunctionMode]);
+Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj) {
+    return Reflex_Param_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
 Reflex_LenType Reflex_Param_sizeNormal(const Reflex_Schema* schema) {
@@ -282,7 +268,7 @@ Reflex_LenType Reflex_Param_sizePacked(const Reflex_Schema* schema) {
 #endif // REFLEX_FORMAT_MODE_PARAM
 
 #if REFLEX_FORMAT_MODE_PRIMARY
-Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj, Reflex_FieldFn onField) {
+Reflex_Result Reflex_Primary_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField) {
     Reflex_Result result = REFLEX_OK;
     Reflex_TypeParams fmt = {0};
     uint8_t* pobj = (uint8_t*) obj;
@@ -311,12 +297,8 @@ Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj, Reflex_FieldFn onFi
     return result;
 }
 
-Reflex_Result Reflex_Primary_serialize(Reflex* reflex, void* obj) {
-    return Reflex_Primary_scan(reflex, obj, REFLEX_SERIALIZE[reflex->FunctionMode]);
-}
-
-Reflex_Result Reflex_Primary_deserialize(Reflex* reflex, void* obj) {
-    return Reflex_Primary_scan(reflex, obj, REFLEX_DESERIALIZE[reflex->FunctionMode]);
+Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj) {
+    return Reflex_Primary_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
 Reflex_LenType Reflex_Primary_sizeNormal(const Reflex_Schema* schema) {
@@ -360,7 +342,7 @@ Reflex_LenType Reflex_Primary_sizePacked(const Reflex_Schema* schema) {
 #endif // REFLEX_FORMAT_MODE_PRIMARY
 
 #if REFLEX_FORMAT_MODE_OFFSET
-Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj, Reflex_FieldFn onField) {
+Reflex_Result Reflex_Offset_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField) {
     Reflex_Result result = REFLEX_OK;
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_TypeParams* fmt = reflex->Schema->Fmt;
@@ -390,12 +372,8 @@ Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj, Reflex_FieldFn onFie
     return result;
 }
 
-Reflex_Result Reflex_Offset_serialize(Reflex* reflex, void* obj) {
-    return Reflex_Offset_scan(reflex, obj, REFLEX_SERIALIZE[reflex->FunctionMode]);
-}
-
-Reflex_Result Reflex_Offset_deserialize(Reflex* reflex, void* obj) {
-    return Reflex_Offset_scan(reflex, obj, REFLEX_DESERIALIZE[reflex->FunctionMode]);
+Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj) {
+    return Reflex_Offset_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
 Reflex_LenType Reflex_Offset_sizeNormal(const Reflex_Schema* schema) {
@@ -445,21 +423,52 @@ Reflex_LenType Reflex_Offset_sizePacked(const Reflex_Schema* schema) {
 
 #if REFLEX_SUPPORT_COMPLEX_TYPE
 
-static Reflex_Result Reflex_Complex_Primary_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt ,Reflex_FieldFn onField) {
+static Reflex_Result Reflex_Complex_Begin_Driver(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
+    return reflex->Driver->Category[fmt->Fields.Category]->fnComplexBegin(reflex, obj, fmt);
+}
+static Reflex_Result Reflex_Complex_Begin_Compact(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
+    return reflex->CompactFns->fnComplexBegin(reflex, obj, fmt);
+}
+static Reflex_Result Reflex_Complex_End_Driver(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
+    return reflex->Driver->Category[fmt->Fields.Category]->fnComplexEnd(reflex, obj, fmt);
+}
+static Reflex_Result Reflex_Complex_End_Compact(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
+    return reflex->CompactFns->fnComplexEnd(reflex, obj, fmt);
+}
+
+static const Reflex_OnFieldFn REFLEX_COMPLEX_BEGIN[] = {
+    Reflex_scan_Callback,
+    Reflex_Complex_Begin_Driver,
+    Reflex_Complex_Begin_Compact,
+};
+
+static const Reflex_OnFieldFn REFLEX_COMPLEX_END[] = {
+    Reflex_scan_Callback,
+    Reflex_Complex_End_Driver,
+    Reflex_Complex_End_Compact,
+};
+
+static Reflex_Result Reflex_Complex_Primary_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt ,Reflex_OnFieldFn onField) {
     Reflex_Result res;
     const Reflex_Schema* tmpSchema = reflex->Schema;
+
+    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
 
     reflex->VariableIndexOffset += reflex->VariableIndex;
     reflex->Schema = fmt->Schema;
     res = REFLEX_SCAN[(uint8_t) reflex->Schema->FormatMode](reflex, obj, onField);
     reflex->Schema = tmpSchema;
 
+    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
+
     return res;
 }
 
-static Reflex_Result Reflex_Complex_Pointer_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_FieldFn onField) {
+static Reflex_Result Reflex_Complex_Pointer_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField) {
     Reflex_Result res;
     const Reflex_Schema* tmpSchema = reflex->Schema;
+
+    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
 
     reflex->VariableIndexOffset += reflex->VariableIndex;
     reflex->Schema = fmt->Schema;
@@ -468,37 +477,50 @@ static Reflex_Result Reflex_Complex_Pointer_scan(Reflex* reflex, void* obj, cons
     reflex->Obj = obj;
     // move obj
     reflex->PObj = Reflex_Pointer_moveAddress(obj, fmt);
+
+    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
+
     return res;
 }
 
-static Reflex_Result Reflex_Complex_Array_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_FieldFn onField) {
+static Reflex_Result Reflex_Complex_Array_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField) {
     Reflex_Result res = REFLEX_OK;
     Reflex_LenType len = fmt->Len;
+
+    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
 
     while (len-- > 0 && res == REFLEX_OK) {
         res = Reflex_Complex_Primary_scan(reflex, obj, fmt, onField);
         obj = reflex->PObj;
     }
 
+    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
+
     return res;
 }
 
-static Reflex_Result Reflex_Complex_PointerArray_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_FieldFn onField) {
+static Reflex_Result Reflex_Complex_PointerArray_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField) {
     Reflex_Result res = REFLEX_OK;
     Reflex_LenType len = fmt->Len;
+
+    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
 
     while (len-- > 0 && res == REFLEX_OK) {
         res = Reflex_Complex_Pointer_scan(reflex, obj, fmt, onField);
         obj = reflex->PObj;
     }
 
+    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
+
     return res;
 }
 
-static Reflex_Result Reflex_Complex_Array2D_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_FieldFn onField) {
+static Reflex_Result Reflex_Complex_Array2D_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField) {
     Reflex_Result res = REFLEX_OK;
     Reflex_LenType len;
     Reflex_LenType mlen = fmt->MLen;
+
+    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
 
     while (mlen-- > 0 && res == REFLEX_OK) {
         len = fmt->Len;
@@ -507,6 +529,8 @@ static Reflex_Result Reflex_Complex_Array2D_scan(Reflex* reflex, void* obj, cons
             obj = reflex->PObj;
         }
     }
+
+    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
 
     return res;
 }
@@ -519,12 +543,16 @@ static const Reflex_ComplexScanFn REFLEX_COMPLEX[] = {
     Reflex_Complex_Array2D_scan,
 };
 
-Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_FieldFn onField) {
+Reflex_Result Reflex_Complex_scanRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField) {
     return REFLEX_COMPLEX[fmt->Fields.Category](reflex, obj, fmt, onField);
+}
+
+Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField) {
+    return Reflex_Complex_scanRaw(reflex, obj, fmt, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 #endif
 
-Reflex_Result Reflex_scan(Reflex* reflex, void* obj, Reflex_FieldFn onField) {
+Reflex_Result Reflex_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField) {
 #if REFLEX_SUPPORT_COMPLEX_TYPE
     reflex->PObj = obj;
     reflex->AlignSize = 0;
@@ -533,12 +561,8 @@ Reflex_Result Reflex_scan(Reflex* reflex, void* obj, Reflex_FieldFn onField) {
     return REFLEX_SCAN[(uint8_t) reflex->Schema->FormatMode](reflex, obj, onField);
 }
 
-Reflex_Result Reflex_serialize(Reflex* reflex, void* obj) {
-    return Reflex_scan(reflex, obj, REFLEX_SERIALIZE[reflex->FunctionMode]);
-}
-
-Reflex_Result Reflex_deserialize(Reflex* reflex, void* obj) {
-    return Reflex_scan(reflex, obj, REFLEX_DESERIALIZE[reflex->FunctionMode]);
+Reflex_Result Reflex_scan(Reflex* reflex, void* obj) {
+    return Reflex_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
 Reflex_LenType Reflex_size(const Reflex_Schema* schema, Reflex_SizeType type) {
@@ -547,6 +571,19 @@ Reflex_LenType Reflex_size(const Reflex_Schema* schema, Reflex_SizeType type) {
 
 Reflex_LenType Reflex_sizeType(const Reflex_TypeParams* fmt) {
     return (Reflex_LenType) REFLEX_HELPER[fmt->Fields.Category].moveAddress((void*) 0, fmt);
+}
+
+void Reflex_setCallback(Reflex* reflex, Reflex_OnFieldFn fn) {
+    reflex->onField = fn;
+    reflex->FunctionMode = Reflex_FunctionMode_Callback;
+}
+void Reflex_setDriver(Reflex* reflex, const Reflex_ScanDriver* driver) {
+    reflex->Driver = driver;
+    reflex->FunctionMode = Reflex_FunctionMode_Driver;
+}
+void Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact) {
+    reflex->CompactFns = compact;
+    reflex->FunctionMode = Reflex_FunctionMode_Compact;
 }
 
 Reflex_LenType Reflex_getVariableIndex(Reflex* reflex) {
@@ -563,21 +600,30 @@ void* Reflex_getMainVariable(Reflex* reflex) {
     return reflex->Obj;
 }
 
-static Reflex_Result Reflex_serialize_Callback(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
-    return reflex->serializeCb(reflex, reflex->Buffer, obj, fmt->Type, fmt->Len, fmt->MLen);
+#if REFLEX_SUPPORT_ARGS
+void  Reflex_setArgs(Reflex* reflex, void* args) {
+    reflex->Args = args;
 }
-static Reflex_Result Reflex_serialize_Driver(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
-    return reflex->Serialize->Category[fmt->Fields.Category]->fn[fmt->Fields.Primary](reflex, reflex->Buffer, obj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+void* Reflex_getArgs(Reflex* reflex) {
+    return reflex->Args;
 }
-static Reflex_Result Reflex_serialize_Compact(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
-    return reflex->SerializeFns->fn[fmt->Fields.Primary](reflex, reflex->Buffer, obj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+#endif
+
+#if REFLEX_SUPPORT_BUFFER
+void  Reflex_setBuffer(Reflex* reflex, void* buf) {
+    reflex->Buffer = buf;
 }
-static Reflex_Result Reflex_deserialize_Callback(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
-    return reflex->deserializeCb(reflex, reflex->Buffer, obj, fmt->Type, fmt->Len, fmt->MLen);
+void* Reflex_getBuffer(Reflex* reflex) {
+    return reflex->Buffer;
 }
-static Reflex_Result Reflex_deserialize_Driver(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
-    return reflex->Deserialize->Category[fmt->Fields.Category]->fn[fmt->Fields.Primary](reflex, reflex->Buffer, obj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+#endif
+
+static Reflex_Result Reflex_scan_Callback(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
+    return reflex->onField(reflex, obj, fmt);
 }
-static Reflex_Result Reflex_deserialize_Compact(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
-    return reflex->DeserializeFns->fn[fmt->Fields.Primary](reflex, reflex->Buffer, obj, fmt->Fields.Type, fmt->Len, fmt->MLen);
+static Reflex_Result Reflex_scan_Driver(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
+    return reflex->Driver->Category[fmt->Fields.Category]->fn[fmt->Fields.Primary](reflex, obj, fmt);
+}
+static Reflex_Result Reflex_scan_Compact(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
+    return reflex->CompactFns->fn[fmt->Fields.Primary](reflex, obj, fmt);
 }
