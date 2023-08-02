@@ -22,35 +22,36 @@ typedef struct {
 } StrBuf;
 
 /* --------------------------- Serialize Functions ----------------------- */
-#define IMPL_PRIMARY(TY, FMT)   Reflex_Result ReflexStr_Serialize_Primary_ ##TY(Reflex* reflex, void* buf, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType mLen) { \
-                                    StrBuf* strBuf = (StrBuf*) buf; \
+#define IMPL_PRIMARY(TY, FMT)   Reflex_Result ReflexStr_Serialize_Primary_ ##TY(Reflex* reflex, void* value, const Reflex_TypeParams* fmt) { \
+                                    StrBuf* strBuf = (StrBuf*) Reflex_getBuffer(reflex); \
                                     strBuf->Index += snprintf(&strBuf->Text[strBuf->Index], strBuf->Size - strBuf->Index, FMT,  *(TY*) value); \
                                     return REFLEX_OK; \
                                 }
 
-IMPL_PRIMARY(size_t, "%X,");
+IMPL_PRIMARY(size_t, "%llX,");
 IMPL_PRIMARY(char, "%c,");
 IMPL_PRIMARY(uint8_t, "%u,");
 IMPL_PRIMARY(uint16_t, "%u,");
 IMPL_PRIMARY(uint32_t, "%u,");
-IMPL_PRIMARY(uint64_t, "%u,");
+IMPL_PRIMARY(uint64_t, "%llu,");
 IMPL_PRIMARY(int8_t, "%d,");
 IMPL_PRIMARY(int16_t, "%d,");
 IMPL_PRIMARY(int32_t, "%d,");
-IMPL_PRIMARY(int64_t, "%d,");
+IMPL_PRIMARY(int64_t, "%lld,");
 IMPL_PRIMARY(float, "%f,");
 IMPL_PRIMARY(double, "%f,");
 
-#define IMPL_STR(CAT, TY)       Reflex_Result ReflexStr_Serialize_ ##CAT ##_ ##TY(Reflex* reflex, void* buf, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType mLen) { \
-                                    StrBuf* strBuf = (StrBuf*) buf; \
+#define IMPL_STR(CAT, TY)       Reflex_Result ReflexStr_Serialize_ ##CAT ##_ ##TY(Reflex* reflex, void* value, const Reflex_TypeParams* fmt) { \
+                                    StrBuf* strBuf = (StrBuf*) Reflex_getBuffer(reflex); \
                                     strBuf->Index += snprintf(&strBuf->Text[strBuf->Index], strBuf->Size - strBuf->Index, "%s,",  (TY*) value); \
                                     return REFLEX_OK; \
                                 }
 
-#define IMPL_ARRAY(TY, FMT)     Reflex_Result ReflexStr_Serialize_Array_ ##TY(Reflex* reflex, void* buf, void* value, Reflex_Type type, Reflex_LenType len, Reflex_LenType mLen) { \
+#define IMPL_ARRAY(TY, FMT)     Reflex_Result ReflexStr_Serialize_Array_ ##TY(Reflex* reflex, void* value, const Reflex_TypeParams* fmt) { \
                                     TY* arr = (TY*) value; \
-                                    StrBuf* strBuf = (StrBuf*) buf; \
+                                    StrBuf* strBuf = (StrBuf*) Reflex_getBuffer(reflex); \
                                     strBuf->Index += snprintf(&strBuf->Text[strBuf->Index], strBuf->Size - strBuf->Index, "["); \
+                                    Reflex_LenType len = fmt->Len; \
                                     while (len-- > 0) { \
                                         strBuf->Index += snprintf(&strBuf->Text[strBuf->Index], strBuf->Size - strBuf->Index, FMT,  *arr++); \
                                     } \
@@ -71,37 +72,37 @@ IMPL_ARRAY(int64_t, "%d,");
 IMPL_ARRAY(float, "%f,");
 IMPL_ARRAY(double, "%f,");
 
-const Reflex_SerializeFunctions STR_SERIALIZE_PRIMARY = {
-    .serializeUnknown   = ReflexStr_Serialize_Primary_size_t,
-    .serializeChar      = ReflexStr_Serialize_Primary_char,
-    .serializeUInt8     = ReflexStr_Serialize_Primary_uint8_t,
-    .serializeUInt16    = ReflexStr_Serialize_Primary_uint16_t,
-    .serializeUInt32    = ReflexStr_Serialize_Primary_uint32_t,
-    .serializeUInt64    = ReflexStr_Serialize_Primary_uint64_t,
-    .serializeInt8      = ReflexStr_Serialize_Primary_int8_t,
-    .serializeInt16     = ReflexStr_Serialize_Primary_int16_t,
-    .serializeInt32     = ReflexStr_Serialize_Primary_int32_t,
-    .serializeInt64     = ReflexStr_Serialize_Primary_int64_t,
-    .serializeFloat     = ReflexStr_Serialize_Primary_float,
-    .serializeDouble    = ReflexStr_Serialize_Primary_double,
+const Reflex_ScanFunctions STR_SERIALIZE_PRIMARY = {
+    .fnUnknown   = ReflexStr_Serialize_Primary_size_t,
+    .fnChar      = ReflexStr_Serialize_Primary_char,
+    .fnUInt8     = ReflexStr_Serialize_Primary_uint8_t,
+    .fnUInt16    = ReflexStr_Serialize_Primary_uint16_t,
+    .fnUInt32    = ReflexStr_Serialize_Primary_uint32_t,
+    .fnUInt64    = ReflexStr_Serialize_Primary_uint64_t,
+    .fnInt8      = ReflexStr_Serialize_Primary_int8_t,
+    .fnInt16     = ReflexStr_Serialize_Primary_int16_t,
+    .fnInt32     = ReflexStr_Serialize_Primary_int32_t,
+    .fnInt64     = ReflexStr_Serialize_Primary_int64_t,
+    .fnFloat     = ReflexStr_Serialize_Primary_float,
+    .fnDouble    = ReflexStr_Serialize_Primary_double,
 };
 
-const Reflex_SerializeFunctions STR_SERIALIZE_ARRAY = {
-    .serializeUnknown   = ReflexStr_Serialize_Array_size_t,
-    .serializeChar      = ReflexStr_Serialize_Array_char,
-    .serializeUInt8     = ReflexStr_Serialize_Array_uint8_t,
-    .serializeUInt16    = ReflexStr_Serialize_Array_uint16_t,
-    .serializeUInt32    = ReflexStr_Serialize_Array_uint32_t,
-    .serializeUInt64    = ReflexStr_Serialize_Array_uint64_t,
-    .serializeInt8      = ReflexStr_Serialize_Array_int8_t,
-    .serializeInt16     = ReflexStr_Serialize_Array_int16_t,
-    .serializeInt32     = ReflexStr_Serialize_Array_int32_t,
-    .serializeInt64     = ReflexStr_Serialize_Array_int64_t,
-    .serializeFloat     = ReflexStr_Serialize_Array_float,
-    .serializeDouble    = ReflexStr_Serialize_Array_double,
+const Reflex_ScanFunctions STR_SERIALIZE_ARRAY = {
+    .fnUnknown   = ReflexStr_Serialize_Array_size_t,
+    .fnChar      = ReflexStr_Serialize_Array_char,
+    .fnUInt8     = ReflexStr_Serialize_Array_uint8_t,
+    .fnUInt16    = ReflexStr_Serialize_Array_uint16_t,
+    .fnUInt32    = ReflexStr_Serialize_Array_uint32_t,
+    .fnUInt64    = ReflexStr_Serialize_Array_uint64_t,
+    .fnInt8      = ReflexStr_Serialize_Array_int8_t,
+    .fnInt16     = ReflexStr_Serialize_Array_int16_t,
+    .fnInt32     = ReflexStr_Serialize_Array_int32_t,
+    .fnInt64     = ReflexStr_Serialize_Array_int64_t,
+    .fnFloat     = ReflexStr_Serialize_Array_float,
+    .fnDouble    = ReflexStr_Serialize_Array_double,
 };
 
-const Reflex_SerializeDriver STR_SERIALIZE = {
+const Reflex_ScanDriver STR_SERIALIZE = {
     .Primary = &STR_SERIALIZE_PRIMARY,
     .Array   = &STR_SERIALIZE_ARRAY,
 };
@@ -144,9 +145,9 @@ const Reflex_Schema ModelA_SCHEMA = {
 };
 
 typedef struct {
-    uint8_t  a;
-    char array[20];
-    float c;
+    uint8_t  A;
+    char     Array[20];
+    float    C;
 }ModelB;
 
 
@@ -192,9 +193,9 @@ int main()
     PRINTLN(txt);
 
     ModelB modelB = {
-        .a = 12,
-        .array = "hello array",
-        .c = 12.5
+        .A = 12,
+        .Array = "hello Array",
+        .C = 12.5
     };
     serializeModel(&strBuf, &ModelB_SCHEMA, &modelB);
     PRINTLN(txt);
@@ -204,11 +205,10 @@ int main()
 void serializeModel(StrBuf* buf, const Reflex_Schema* schema, void* obj) {
     Reflex reflex;
 
-    reflex.Buffer = buf;
-    reflex.FunctionMode = Reflex_FunctionMode_Driver;
-    reflex.Serialize = &STR_SERIALIZE;
+    Reflex_setBuffer(&reflex, buf);
+    Reflex_setDriver(&reflex, &STR_SERIALIZE);
 
     reflex.Schema = schema;
     buf->Index = 0;
-    Reflex_serialize(&reflex, obj);
+    Reflex_scan(&reflex, obj);
 }
