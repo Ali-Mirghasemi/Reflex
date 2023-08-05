@@ -43,10 +43,17 @@ extern "C" {
 
 #define REFLEX_SUPPORT_64BIT_INT            1
 #define REFLEX_SUPPORT_DOUBLE               1
-#define REFLEX_SUPPORT_COMPLEX_TYPE         1
 #define REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS   1
 #define REFLEX_SUPPORT_ARGS                 1
 #define REFLEX_SUPPORT_BUFFER               1
+#define REFLEX_SUPPORT_SIZE_FN              1
+#define REFLEX_SUPPORT_SCAN_FIELD           1
+
+#define REFLEX_SUPPORT_TYPE_POINTER         1
+#define REFLEX_SUPPORT_TYPE_ARRAY           1
+#define REFLEX_SUPPORT_TYPE_POINTER_ARRAY   1
+#define REFLEX_SUPPORT_TYPE_ARRAY_2D        1
+#define REFLEX_SUPPORT_TYPE_COMPLEX         1
 
 typedef int16_t Reflex_LenType;
 
@@ -76,21 +83,24 @@ struct __Reflex_Schema;
 typedef struct __Reflex_Schema Reflex_Schema;
 
 #define REFLEX_OK                               0
+#define REFLEX_ERROR                            ((Reflex_Result)(~0))
 #define REFLEX_ARCH_BYTES                       (REFLEX_ARCH / 8)
 
 /* Supportive Macros */
 #if REFLEX_FORMAT_MODE_OFFSET
     #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET()             Reflex_OffsetType Offset
-    #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET_INIT(T, F)    .Offset = (Reflex_OffsetType) &((T*) 0)->F
+    #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET_INIT(T, F)    .Offset = (Reflex_OffsetType) &((T*) 0)->F,
 #else
     #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET()
     #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET_INIT(T, F)
 #endif
 
-#if REFLEX_SUPPORT_COMPLEX_TYPE
+#if REFLEX_SUPPORT_TYPE_COMPLEX
     #define __REFLEX_TYPE_PARAM_FIELD_COMPLEX()             const Reflex_Schema* Schema
+    #define __REFLEX_TYPE_PARAM_FIELD_COMPLEX_INIT(SCHEMA)  .Schema = (SCHEMA),
 #else
     #define __REFLEX_TYPE_PARAM_FIELD_COMPLEX()
+    #define __REFLEX_TYPE_PARAM_FIELD_COMPLEX_INIT(SCHEMA)
 #endif
 
 #if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
@@ -101,15 +111,39 @@ typedef struct __Reflex_Schema Reflex_Schema;
     #define __REFLEX_SCHEMA_FIELD_FMT_SIZE_INIT(FMT)
 #endif
 
+#if REFLEX_SUPPORT_TYPE_ARRAY || REFLEX_SUPPORT_TYPE_ARRAY_2D || REFLEX_SUPPORT_TYPE_POINTER_ARRAY
+    #define __REFLEX_TYPE_PARAMS_FIELD_LEN()                Reflex_LenType Len
+    #define __REFLEX_TYPE_PARAMS_FIELD_LEN_INIT(LEN)        .Len = (LEN),
+#else
+    #define __REFLEX_TYPE_PARAMS_FIELD_LEN()
+    #define __REFLEX_TYPE_PARAMS_FIELD_LEN_INIT(LEN)
+#endif
+
+#if REFLEX_SUPPORT_TYPE_ARRAY_2D
+    #define __REFLEX_TYPE_PARAMS_FIELD_MLEN()               Reflex_LenType MLen
+    #define __REFLEX_TYPE_PARAMS_FIELD_MLEN_INIT(MLEN)      .MLen = (MLEN),
+#else
+    #define __REFLEX_TYPE_PARAMS_FIELD_MLEN()
+    #define __REFLEX_TYPE_PARAMS_FIELD_MLEN_INIT(MLEN)
+#endif
+
 /**
  * @brief supported param categories
  */
 typedef enum {
     Reflex_Category_Primary,       /**< Primary types, ex: u8,u16,char,float,... */
+#if REFLEX_SUPPORT_TYPE_POINTER
     Reflex_Category_Pointer,       /**< pointer mode for primary types */
+#endif
+#if REFLEX_SUPPORT_TYPE_ARRAY
     Reflex_Category_Array,         /**< array mode for primary types, required length */
+#endif
+#if REFLEX_SUPPORT_TYPE_POINTER_ARRAY
     Reflex_Category_PointerArray,  /**< array of pointers for primary types, required length */
+#endif
+#if REFLEX_SUPPORT_TYPE_ARRAY_2D
     Reflex_Category_Array2D,       /**< 2D array of primary types */
+#endif
     Reflex_Category_Length,
 } Reflex_Category;
 /**
@@ -132,13 +166,11 @@ typedef enum {
 #if REFLEX_SUPPORT_DOUBLE
     Reflex_PrimaryType_Double,
 #endif
-#if REFLEX_SUPPORT_COMPLEX_TYPE
+#if REFLEX_SUPPORT_TYPE_COMPLEX
     Reflex_PrimaryType_Complex,
 #endif
     Reflex_PrimaryType_Length,
 } Reflex_PrimaryType;
-
-#define REFLEX_TYPE(CAT, TY)         Reflex_Type_ ##CAT ##_ ##TY = Reflex_Category_ ##CAT << 5 | Reflex_PrimaryType_ ##TY
 
 /**
  * @brief Reflex type that user can use
@@ -147,106 +179,115 @@ typedef enum {
  *
  */
 typedef enum {
+#define __REFLEX_TYPE(CAT, TY)         Reflex_Type_ ##CAT ##_ ##TY = Reflex_Category_ ##CAT << 5 | Reflex_PrimaryType_ ##TY
     // ------------- Primary Types --------------
-    REFLEX_TYPE(Primary, Unknown),
-    REFLEX_TYPE(Primary, Char),
-    REFLEX_TYPE(Primary, UInt8),
-    REFLEX_TYPE(Primary, Int8),
-    REFLEX_TYPE(Primary, UInt16),
-    REFLEX_TYPE(Primary, Int16),
-    REFLEX_TYPE(Primary, UInt32),
-    REFLEX_TYPE(Primary, Int32),
+    __REFLEX_TYPE(Primary, Unknown),
+    __REFLEX_TYPE(Primary, Char),
+    __REFLEX_TYPE(Primary, UInt8),
+    __REFLEX_TYPE(Primary, Int8),
+    __REFLEX_TYPE(Primary, UInt16),
+    __REFLEX_TYPE(Primary, Int16),
+    __REFLEX_TYPE(Primary, UInt32),
+    __REFLEX_TYPE(Primary, Int32),
 #if REFLEX_SUPPORT_64BIT_INT
-    REFLEX_TYPE(Primary, UInt64),
-    REFLEX_TYPE(Primary, Int64),
+    __REFLEX_TYPE(Primary, UInt64),
+    __REFLEX_TYPE(Primary, Int64),
 #endif
-    REFLEX_TYPE(Primary, Float),
+    __REFLEX_TYPE(Primary, Float),
 #if REFLEX_SUPPORT_DOUBLE
-    REFLEX_TYPE(Primary, Double),
+    __REFLEX_TYPE(Primary, Double),
 #endif
-#if REFLEX_SUPPORT_COMPLEX_TYPE
-    REFLEX_TYPE(Primary, Complex),
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    __REFLEX_TYPE(Primary, Complex),
 #endif
     // ------------- Pointer Types --------------
-    REFLEX_TYPE(Pointer, Unknown),
-    REFLEX_TYPE(Pointer, Char),
-    REFLEX_TYPE(Pointer, UInt8),
-    REFLEX_TYPE(Pointer, Int8),
-    REFLEX_TYPE(Pointer, UInt16),
-    REFLEX_TYPE(Pointer, Int16),
-    REFLEX_TYPE(Pointer, UInt32),
-    REFLEX_TYPE(Pointer, Int32),
+#if REFLEX_SUPPORT_TYPE_POINTER
+    __REFLEX_TYPE(Pointer, Unknown),
+    __REFLEX_TYPE(Pointer, Char),
+    __REFLEX_TYPE(Pointer, UInt8),
+    __REFLEX_TYPE(Pointer, Int8),
+    __REFLEX_TYPE(Pointer, UInt16),
+    __REFLEX_TYPE(Pointer, Int16),
+    __REFLEX_TYPE(Pointer, UInt32),
+    __REFLEX_TYPE(Pointer, Int32),
 #if REFLEX_SUPPORT_64BIT_INT
-    REFLEX_TYPE(Pointer, UInt64),
-    REFLEX_TYPE(Pointer, Int64),
+    __REFLEX_TYPE(Pointer, UInt64),
+    __REFLEX_TYPE(Pointer, Int64),
 #endif
-    REFLEX_TYPE(Pointer, Float),
+    __REFLEX_TYPE(Pointer, Float),
 #if REFLEX_SUPPORT_DOUBLE
-    REFLEX_TYPE(Pointer, Double),
+    __REFLEX_TYPE(Pointer, Double),
 #endif
-#if REFLEX_SUPPORT_COMPLEX_TYPE
-    REFLEX_TYPE(Pointer, Complex),
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    __REFLEX_TYPE(Pointer, Complex),
 #endif
+#endif // REFLEX_SUPPORT_TYPE_POINTER
     // ------------- Array Types --------------
-    REFLEX_TYPE(Array, Unknown),
-    REFLEX_TYPE(Array, Char),
-    REFLEX_TYPE(Array, UInt8),
-    REFLEX_TYPE(Array, Int8),
-    REFLEX_TYPE(Array, UInt16),
-    REFLEX_TYPE(Array, Int16),
-    REFLEX_TYPE(Array, UInt32),
-    REFLEX_TYPE(Array, Int32),
+#if REFLEX_SUPPORT_TYPE_ARRAY
+    __REFLEX_TYPE(Array, Unknown),
+    __REFLEX_TYPE(Array, Char),
+    __REFLEX_TYPE(Array, UInt8),
+    __REFLEX_TYPE(Array, Int8),
+    __REFLEX_TYPE(Array, UInt16),
+    __REFLEX_TYPE(Array, Int16),
+    __REFLEX_TYPE(Array, UInt32),
+    __REFLEX_TYPE(Array, Int32),
 #if REFLEX_SUPPORT_64BIT_INT
-    REFLEX_TYPE(Array, UInt64),
-    REFLEX_TYPE(Array, Int64),
+    __REFLEX_TYPE(Array, UInt64),
+    __REFLEX_TYPE(Array, Int64),
 #endif
-    REFLEX_TYPE(Array, Float),
+    __REFLEX_TYPE(Array, Float),
 #if REFLEX_SUPPORT_DOUBLE
-    REFLEX_TYPE(Array, Double),
+    __REFLEX_TYPE(Array, Double),
 #endif
-#if REFLEX_SUPPORT_COMPLEX_TYPE
-    REFLEX_TYPE(Array, Complex),
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    __REFLEX_TYPE(Array, Complex),
 #endif
+#endif // REFLEX_SUPPORT_TYPE_ARRAY
     // ------------- PointerArray Types --------------
-    REFLEX_TYPE(PointerArray, Unknown),
-    REFLEX_TYPE(PointerArray, Char),
-    REFLEX_TYPE(PointerArray, UInt8),
-    REFLEX_TYPE(PointerArray, Int8),
-    REFLEX_TYPE(PointerArray, UInt16),
-    REFLEX_TYPE(PointerArray, Int16),
-    REFLEX_TYPE(PointerArray, UInt32),
-    REFLEX_TYPE(PointerArray, Int32),
+#if REFLEX_SUPPORT_TYPE_POINTER_ARRAY
+    __REFLEX_TYPE(PointerArray, Unknown),
+    __REFLEX_TYPE(PointerArray, Char),
+    __REFLEX_TYPE(PointerArray, UInt8),
+    __REFLEX_TYPE(PointerArray, Int8),
+    __REFLEX_TYPE(PointerArray, UInt16),
+    __REFLEX_TYPE(PointerArray, Int16),
+    __REFLEX_TYPE(PointerArray, UInt32),
+    __REFLEX_TYPE(PointerArray, Int32),
 #if REFLEX_SUPPORT_64BIT_INT
-    REFLEX_TYPE(PointerArray, UInt64),
-    REFLEX_TYPE(PointerArray, Int64),
+    __REFLEX_TYPE(PointerArray, UInt64),
+    __REFLEX_TYPE(PointerArray, Int64),
 #endif
-    REFLEX_TYPE(PointerArray, Float),
+    __REFLEX_TYPE(PointerArray, Float),
 #if REFLEX_SUPPORT_DOUBLE
-    REFLEX_TYPE(PointerArray, Double),
+    __REFLEX_TYPE(PointerArray, Double),
 #endif
-#if REFLEX_SUPPORT_COMPLEX_TYPE
-    REFLEX_TYPE(PointerArray, Complex),
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    __REFLEX_TYPE(PointerArray, Complex),
 #endif
+#endif // REFLEX_SUPPORT_TYPE_POINTER_ARRAY
     // ------------- Array2D Types --------------
-    REFLEX_TYPE(Array2D, Unknown),
-    REFLEX_TYPE(Array2D, Char),
-    REFLEX_TYPE(Array2D, UInt8),
-    REFLEX_TYPE(Array2D, Int8),
-    REFLEX_TYPE(Array2D, UInt16),
-    REFLEX_TYPE(Array2D, Int16),
-    REFLEX_TYPE(Array2D, UInt32),
-    REFLEX_TYPE(Array2D, Int32),
+#if REFLEX_SUPPORT_TYPE_ARRAY_2D
+    __REFLEX_TYPE(Array2D, Unknown),
+    __REFLEX_TYPE(Array2D, Char),
+    __REFLEX_TYPE(Array2D, UInt8),
+    __REFLEX_TYPE(Array2D, Int8),
+    __REFLEX_TYPE(Array2D, UInt16),
+    __REFLEX_TYPE(Array2D, Int16),
+    __REFLEX_TYPE(Array2D, UInt32),
+    __REFLEX_TYPE(Array2D, Int32),
 #if REFLEX_SUPPORT_64BIT_INT
-    REFLEX_TYPE(Array2D, UInt64),
-    REFLEX_TYPE(Array2D, Int64),
+    __REFLEX_TYPE(Array2D, UInt64),
+    __REFLEX_TYPE(Array2D, Int64),
 #endif
-    REFLEX_TYPE(Array2D, Float),
+    __REFLEX_TYPE(Array2D, Float),
 #if REFLEX_SUPPORT_DOUBLE
-    REFLEX_TYPE(Array2D, Double),
+    __REFLEX_TYPE(Array2D, Double),
 #endif
-#if REFLEX_SUPPORT_COMPLEX_TYPE
-    REFLEX_TYPE(Array2D, Complex),
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    __REFLEX_TYPE(Array2D, Complex),
 #endif
+#endif // REFLEX_SUPPORT_TYPE_ARRAY_2D
 } Reflex_Type;
 
 #define Reflex_Type_Unknown          Reflex_Type_Primary_Unknown
@@ -286,7 +327,7 @@ typedef union {
     #if REFLEX_SUPPORT_DOUBLE
         Reflex_OnFieldFn  fnDouble;
     #endif
-    #if REFLEX_SUPPORT_COMPLEX_TYPE
+    #if REFLEX_SUPPORT_TYPE_COMPLEX
         Reflex_OnFieldFn  fnComplexBegin;
         Reflex_OnFieldFn  fnComplexEnd;
     #endif
@@ -297,50 +338,33 @@ typedef union {
     const Reflex_ScanFunctions*      Category[Reflex_Category_Length];
     struct {
         const Reflex_ScanFunctions*  Primary;
+    #if REFLEX_SUPPORT_TYPE_POINTER
         const Reflex_ScanFunctions*  Pointer;
+    #endif
+    #if REFLEX_SUPPORT_TYPE_ARRAY
         const Reflex_ScanFunctions*  Array;
+    #endif
+    #if REFLEX_SUPPORT_TYPE_POINTER_ARRAY
         const Reflex_ScanFunctions*  PointerArray;
+    #endif
+    #if REFLEX_SUPPORT_TYPE_ARRAY_2D
         const Reflex_ScanFunctions*  Array2D;
+    #endif
     };
 } Reflex_ScanDriver;
 
-#define REFLEX_TYPE_PARAMS_STRUCT()     Reflex_LenType              Len;       /*< Used for Array Length, Array2D Row Length, Sizeof Struct, Sizeof Enum, Sizeof Union*/ \
-                                        Reflex_LenType              MLen;      /*< Used for Array2D Columns Length */ \
+#define REFLEX_TYPE_PARAMS_STRUCT()     __REFLEX_TYPE_PARAM_FIELD_COMPLEX();   \
+                                        __REFLEX_TYPE_PARAMS_FIELD_LEN();      /*< Used for Array Length, Array2D Row Length, Sizeof Struct, Sizeof Enum, Sizeof Union*/ \
+                                        __REFLEX_TYPE_PARAMS_FIELD_MLEN();     /*< Used for Array2D Columns Length */ \
                                         union {                                \
                                             uint8_t                 Type;      \
                                             Reflex_Type_BitFields   Fields;    \
                                         };                                     \
-                                        __REFLEX_TYPE_PARAM_FIELD_COMPLEX();    \
                                         __REFLEX_TYPE_PARAMS_FIELD_OFFSET()
 
 struct __Reflex_TypeParams {
     REFLEX_TYPE_PARAMS_STRUCT();
 };
-
-#define REFLEX_TYPE_PARAMS(TY, LEN, MLEN)               {                 \
-                                                            .Type = TY,   \
-                                                            .Len = LEN,   \
-                                                            .MLen = MLEN, \
-                                                        }
-#define REFLEX_TYPE_PRIMARY(TY)                         {                 \
-                                                            .Type = TY,   \
-                                                            .Len = 0,     \
-                                                            .MLen = 0,    \
-                                                        }
-#define REFLEX_TYPE_PARAMS_OFFSET(TY, LEN, MLEN, F, T)  {                 \
-                                                            .Type = TY,   \
-                                                            .Len = LEN,   \
-                                                            .MLen = MLEN, \
-                                                            __REFLEX_TYPE_PARAMS_FIELD_OFFSET_INIT(F, T) \
-                                                        }
-#define REFLEX_TYPE_PARAMS_COMPLEX(TY, LEN, MLEN, C)    {                 \
-                                                            .Type = TY,   \
-                                                            .Len = LEN,   \
-                                                            .MLen = MLEN, \
-                                                            .Schema = C,  \
-                                                        }
-
-#define REFLEX_TYPE_PARAMS_LEN(ARR)                     (sizeof(ARR) / sizeof(ARR[0]))
 
 typedef enum {
   Reflex_SizeType_Normal,
@@ -377,13 +401,6 @@ struct __Reflex_Schema {
     uint8_t                             Reserved            : 6;
 };
 
-#define REFLEX_SCHEMA_INIT(MODE, FMT)           {                       \
-                                                    .FormatMode = MODE, \
-                                                    .CustomFmt = FMT,   \
-                                                    .Len = REFLEX_TYPE_PARAMS_LEN(FMT), \
-                                                    __REFLEX_SCHEMA_FIELD_FMT_SIZE_INIT(FMT) \
-                                                }
-
 struct __Reflex {
 #if REFLEX_SUPPORT_ARGS
     void*                                   Args;
@@ -398,7 +415,7 @@ struct __Reflex {
         const Reflex_ScanFunctions*         CompactFns;
     };
     const Reflex_Schema*                    Schema;
-#if REFLEX_SUPPORT_COMPLEX_TYPE
+#if REFLEX_SUPPORT_TYPE_COMPLEX
     void*                                   PObj;
     Reflex_LenType                          AlignSize;
     Reflex_LenType                          VariableIndexOffset;
@@ -411,7 +428,10 @@ struct __Reflex {
 // ---------------------- Main API ----------------------
 Reflex_Result Reflex_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
 Reflex_Result Reflex_scan(Reflex* reflex, void* obj);
-Reflex_LenType Reflex_size(const Reflex_Schema* schema, Reflex_SizeType type);
+
+Reflex_Result Reflex_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* field, Reflex_OnFieldFn onField);
+Reflex_Result Reflex_scanField(Reflex* reflex, void* obj, const Reflex_TypeParams* field);
+
 Reflex_LenType Reflex_sizeType(const Reflex_TypeParams* fmt);
 // ------------------- Utils Functions ------------------
 void Reflex_setCallback(Reflex* reflex, Reflex_OnFieldFn fn);
@@ -442,9 +462,26 @@ void*          Reflex_getMainVariable(Reflex* reflex);
 #if REFLEX_FORMAT_MODE_OFFSET
     Reflex_Result Reflex_Offset_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
 #endif
-#if REFLEX_SUPPORT_COMPLEX_TYPE
+#if REFLEX_SUPPORT_TYPE_COMPLEX
     Reflex_Result Reflex_Complex_scanRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
 #endif
+// -------------------- Scan Field Functions ----------------
+#if REFLEX_SUPPORT_SCAN_FIELD
+
+#if REFLEX_FORMAT_MODE_PARAM
+    Reflex_Result Reflex_Param_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* field, Reflex_OnFieldFn onField);
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+    Reflex_Result Reflex_Primary_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* field, Reflex_OnFieldFn onField);
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+    Reflex_Result Reflex_Offset_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* field, Reflex_OnFieldFn onField);
+#endif
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    Reflex_Result Reflex_Complex_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const Reflex_TypeParams* field, Reflex_OnFieldFn onField);
+#endif
+
+#endif // REFLEX_SUPPORT_SCAN_FIELD
 // --------------------- Driver Functions -------------------
 #if REFLEX_FORMAT_MODE_PARAM
     Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj);
@@ -455,11 +492,13 @@ void*          Reflex_getMainVariable(Reflex* reflex);
 #if REFLEX_FORMAT_MODE_OFFSET
     Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj);
 #endif
-#if REFLEX_SUPPORT_COMPLEX_TYPE
+#if REFLEX_SUPPORT_TYPE_COMPLEX
     Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
 #endif
 
 // ------------------------ Size Functions --------------------
+#if REFLEX_SUPPORT_SIZE_FN
+    Reflex_LenType Reflex_size(const Reflex_Schema* schema, Reflex_SizeType type);
 #if REFLEX_FORMAT_MODE_PARAM
     Reflex_LenType Reflex_Param_sizeNormal(const Reflex_Schema* schema);
     Reflex_LenType Reflex_Param_sizePacked(const Reflex_Schema* schema);
@@ -472,6 +511,125 @@ void*          Reflex_getMainVariable(Reflex* reflex);
     Reflex_LenType Reflex_Offset_sizeNormal(const Reflex_Schema* schema);
     Reflex_LenType Reflex_Offset_sizePacked(const Reflex_Schema* schema);
 #endif
+#endif // REFLEX_SUPPORT_SIZE_FN
+
+
+// ---------------------------------- Helper Macros ----------------------------------
+/**
+ * @brief This macro help you to fill Reflex_TypeParams struct with default
+ * parameters, and also support all possible configurations
+ * @param TY Reflex_Type
+ * @param LEN length of array
+ * @param MLEN number of columns of 2D array
+ * @param C schema of field, used for complex type
+ * @param T struct name, used for offset schema
+ * @param F field name, used for offset schema
+ */
+#define REFLEX_TYPE_PARAMS_FULL(TY, LEN, MLEN, C, T, F) {                   \
+                                                            .Type = (TY),   \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_LEN_INIT(LEN)    \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_MLEN_INIT(MLEN)  \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_OFFSET_INIT(T, F)\
+                                                            __REFLEX_TYPE_PARAM_FIELD_COMPLEX_INIT(C)   \
+                                                        }
+/**
+ * @brief This macro help you to fill Reflex_TypeParams struct with default
+ * parameters
+ * @param TY Reflex_Type
+ */
+#define REFLEX_TYPE_PARAMS_PRIMARY(TY)                  {                 \
+                                                            .Type = TY,   \
+                                                        }
+/**
+ * @brief This macro help you to fill Reflex_TypeParams struct with default
+ * parameters
+ * @param TY Reflex_Type
+ * @param LEN length of array
+ */
+#define REFLEX_TYPE_PARAMS_ARRAY(TY, LEN)               {                 \
+                                                            .Type = TY,   \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_LEN_INIT(LEN)    \
+                                                        }
+/**
+ * @brief This macro help you to fill Reflex_TypeParams struct with default
+ * parameters
+ * @param TY Reflex_Type
+ * @param LEN length of array
+ * @param MLEN number of columns of 2D array
+ */
+#define REFLEX_TYPE_PARAMS_ARRAY_2D(TY, LEN, MLEN)      {                 \
+                                                            .Type = TY,   \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_LEN_INIT(LEN)   \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_MLEN_INIT(MLEN) \
+                                                        }
+/**
+ * @brief This macro help you to fill Reflex_TypeParams struct with default
+ * parameters
+ * @param TY Reflex_Type
+ * @param LEN length of array
+ * @param MLEN number of columns of 2D array
+ * @param T struct name, used for offset schema
+ * @param F field name, used for offset schema
+ */
+#define REFLEX_TYPE_PARAMS_COMPLEX(TY, LEN, MLEN, C)    {                 \
+                                                            .Type = TY,   \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_LEN_INIT(LEN)   \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_MLEN_INIT(MLEN)  \
+                                                            __REFLEX_TYPE_PARAM_FIELD_COMPLEX_INIT(C)  \
+                                                        }
+/**
+ * @brief This macro help you to fill Reflex_TypeParams struct with default
+ * parameters
+ * @param TY Reflex_Type
+ * @param LEN length of array
+ * @param MLEN number of columns of 2D array
+ * @param T struct name, used for offset schema
+ * @param F field name, used for offset schema
+ */
+#define REFLEX_TYPE_PARAMS_OFFSET(TY, LEN, MLEN, T, F)  {                 \
+                                                            .Type = TY,   \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_LEN_INIT(LEN)   \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_MLEN_INIT(MLEN)  \
+                                                            __REFLEX_TYPE_PARAMS_FIELD_OFFSET_INIT(T, F) \
+                                                        }
+
+
+/**
+ * @brief This macro can be used for initialize Reflex_TypeParams with default parameters
+ * Input Format:
+ * - (TY)                       -> Primary, Pointer
+ * - (TY, LEN)                  -> Array, PointerArray,
+ * - (TY, LEN, MLEN)            -> Array2D
+ * - (TY, LEN, MLEN, C)         -> ComplexType
+ * - (TY, LEN, MLEN, T, F)      -> Offset Schema
+ * - (TY, LEN, MLEN, C, T, F)   -> Full
+ * *All format support backward compatibility
+ *
+ * @param TY Reflex_Type
+ * @param LEN length of array
+ * @param MLEN number of columns of 2D array
+ * @param C schema of field, used for complex type
+ * @param T struct name, used for offset schema
+ * @param F field name, used for offset schema
+ */
+#define REFLEX_TYPE_PARAMS(...)                         __REFLEX_TYPE_PARAMS(__VA_ARGS__)
+
+#define REFLEX_TYPE_PARAMS_LEN(ARR)                     (sizeof(ARR) / sizeof(ARR[0]))
+
+#define REFLEX_SCHEMA_INIT(MODE, FMT)                   {                       \
+                                                            .FormatMode = MODE, \
+                                                            .CustomFmt = FMT,   \
+                                                            .Len = REFLEX_TYPE_PARAMS_LEN(FMT), \
+                                                            __REFLEX_SCHEMA_FIELD_FMT_SIZE_INIT(FMT) \
+                                                        }
+
+// ----------------------------------- Private Helper Macros --------------------------
+#define __REFLEX_TYPE_PARAMS_N_(_0, _1, _2, _3, _4, _5, FMT, ...) REFLEX_TYPE_PARAMS_ ##FMT
+#define __REFLEX_TYPE_PARAMS_N(...)                     __REFLEX_TYPE_PARAMS_N_(__VA_ARGS__)
+#define __REFLEX_TYPE_PARAMS_FMT_PAT()                  FULL, OFFSET, COMPLEX, ARRAY_2D, ARRAY, PRIMARY
+#define __REFLEX_TYPE_PARAMS_BUILD_(FMT, ...)           FMT(__VA_ARGS__)
+#define __REFLEX_TYPE_PARAMS_BUILD(...)                 __REFLEX_TYPE_PARAMS_BUILD_(__REFLEX_TYPE_PARAMS_N(__VA_ARGS__, __REFLEX_TYPE_PARAMS_FMT_PAT()), __VA_ARGS__)
+#define __REFLEX_TYPE_PARAMS(...)                       __REFLEX_TYPE_PARAMS_BUILD(__VA_ARGS__)
 
 #ifdef __cplusplus
 };

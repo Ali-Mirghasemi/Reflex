@@ -50,11 +50,12 @@ static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
     #define __nextFmt(schema, fmt)        fmt++
 #endif
 
-#if REFLEX_SUPPORT_COMPLEX_TYPE
+#if REFLEX_SUPPORT_TYPE_COMPLEX
     #define __biggestField_init()               Reflex_LenType biggestField = 0, tmpSize
+    #define __biggestField_init_NoTemp()        Reflex_LenType biggestField = 0
     #define __updateBiggestField(SIZE)          if (biggestField < (SIZE)) { \
                                                     biggestField = (SIZE); \
-                                                } 
+                                                }
     #define __alignObject()                     reflex->PObj = Reflex_alignAddress(pobj, biggestField); \
                                                 if (reflex->AlignSize < biggestField) { \
                                                     reflex->AlignSize = biggestField; \
@@ -223,48 +224,6 @@ Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj) {
     return Reflex_Param_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
-Reflex_LenType Reflex_Param_sizeNormal(const Reflex_Schema* schema) {
-    uint8_t* pobj = (uint8_t*) 0;
-    const Reflex_Type_Helper* helper;
-    const Reflex_TypeParams* fmt = schema->Fmt;
-    Reflex_LenType len = schema->Len;
-    Reflex_LenType objsize = 0;
-    __isCustom_init(schema);
-
-    while (len-- > 0) {
-        helper = &REFLEX_HELPER[fmt->Fields.Category];
-        if (objsize < PRIMARY_TYPE_SIZE[fmt->Fields.Primary]) {
-            objsize = PRIMARY_TYPE_SIZE[fmt->Fields.Primary];
-        }
-        // check align
-        pobj = helper->alignAddress(pobj, fmt);
-        // move pobj
-        pobj = helper->moveAddress(pobj, fmt);
-        // next fmt
-        __nextFmt(schema, fmt);
-    }
-
-    pobj = Reflex_alignAddress(pobj, objsize);
-
-    return (Reflex_LenType) pobj;
-}
-
-Reflex_LenType Reflex_Param_sizePacked(const Reflex_Schema* schema) {
-    uint8_t* pobj = (uint8_t*) 0;
-    const Reflex_Type_Helper* helper;
-    const Reflex_TypeParams* fmt = schema->Fmt;
-    Reflex_LenType len = schema->Len;
-    __isCustom_init(schema);
-
-    while (len-- > 0) {
-        helper = &REFLEX_HELPER[fmt->Fields.Category];
-        // move pobj
-        pobj = helper->moveAddress(pobj, fmt);
-        // next fmt
-        __nextFmt(schema, fmt);
-    }
-    return (Reflex_LenType) pobj;
-}
 #endif // REFLEX_FORMAT_MODE_PARAM
 
 #if REFLEX_FORMAT_MODE_PRIMARY
@@ -274,7 +233,7 @@ Reflex_Result Reflex_Primary_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const uint8_t* pfmt = reflex->Schema->PrimaryFmt;
-    __biggestField_init();
+    __biggestField_init_NoTemp();
     reflex->VariableIndex = 0;
     reflex->Obj = obj;
 
@@ -301,44 +260,35 @@ Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj) {
     return Reflex_Primary_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
-Reflex_LenType Reflex_Primary_sizeNormal(const Reflex_Schema* schema) {
+Reflex_Result Reflex_Param_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* field, Reflex_OnFieldFn onField) {
+    Reflex_Result result = REFLEX_OK;
     Reflex_TypeParams fmt = {0};
-    uint8_t* pobj = (uint8_t*) 0;
+    uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
-    const uint8_t* pfmt = schema->PrimaryFmt;
-    Reflex_LenType objsize = 0;
+    const uint8_t* pfmt = reflex->Schema->PrimaryFmt;
+    __biggestField_init_NoTemp();
+    reflex->VariableIndex = 0;
+    reflex->Obj = obj;
 
-    while (*pfmt != Reflex_Type_Unknown) {
+    while (*pfmt != Reflex_Type_Unknown && result == REFLEX_OK) {
         fmt.Type = *pfmt++;
         helper = &REFLEX_HELPER[fmt.Fields.Category];
-        if (objsize < PRIMARY_TYPE_SIZE[fmt.Type]) {
-            objsize = PRIMARY_TYPE_SIZE[fmt.Type];
-        }
         // check align
         pobj = helper->alignAddress(pobj, &fmt);
+        // onField
+        if (onField) {
+            result = onField(reflex, pobj, &fmt);
+        }
+        __updateBiggestField(PRIMARY_TYPE_SIZE[fmt.Fields.Primary]);
+        reflex->VariableIndex++;
         // move pobj
         pobj = helper->moveAddress(pobj, &fmt);
     }
+    __alignObject();
 
-    pobj = Reflex_alignAddress(pobj, objsize);
-
-    return (Reflex_LenType) pobj;
+    return result;
 }
 
-Reflex_LenType Reflex_Primary_sizePacked(const Reflex_Schema* schema) {
-    Reflex_TypeParams fmt = {0};
-    uint8_t* pobj = (uint8_t*) 0;
-    const Reflex_Type_Helper* helper;
-    const uint8_t* pfmt = schema->PrimaryFmt;
-
-    while (*pfmt != Reflex_Type_Unknown) {
-        fmt.Type = *pfmt++;
-        helper = &REFLEX_HELPER[fmt.Fields.Category];
-        // move pobj
-        pobj = helper->moveAddress(pobj, &fmt);
-    }
-    return (Reflex_LenType) pobj;
-}
 #endif // REFLEX_FORMAT_MODE_PRIMARY
 
 #if REFLEX_FORMAT_MODE_OFFSET
@@ -376,52 +326,9 @@ Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj) {
     return Reflex_Offset_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
-Reflex_LenType Reflex_Offset_sizeNormal(const Reflex_Schema* schema) {
-    uint8_t* pobj = (uint8_t*) 0;
-    const Reflex_TypeParams* fmt = schema->Fmt;
-    Reflex_LenType len = schema->Len;
-    Reflex_LenType objsize = 0;
-    const Reflex_TypeParams* maxOffset = fmt;
-    __isCustom_init(schema);
-
-    while (len-- > 0) {
-        if (objsize < PRIMARY_TYPE_SIZE[fmt->Fields.Primary]) {
-            objsize = PRIMARY_TYPE_SIZE[fmt->Fields.Primary];
-        }
-        // find max offset
-        if (maxOffset->Offset < fmt->Offset) {
-            maxOffset = fmt;
-        }
-        // next fmt
-        __nextFmt(schema, fmt);
-    }
-    // max offset + size
-    pobj = (uint8_t*) (maxOffset->Offset + REFLEX_HELPER[maxOffset->Fields.Category].itemSize(maxOffset));
-    // align to biggest field
-    pobj = Reflex_alignAddress(pobj, objsize);
-
-    return (Reflex_LenType) pobj;
-}
-
-Reflex_LenType Reflex_Offset_sizePacked(const Reflex_Schema* schema) {
-    uint8_t* pobj = (uint8_t*) 0;
-    const Reflex_Type_Helper* helper;
-    const Reflex_TypeParams* fmt = schema->Fmt;
-    Reflex_LenType len = schema->Len;
-    __isCustom_init(schema);
-
-    while (len-- > 0) {
-        helper = &REFLEX_HELPER[fmt->Fields.Category];
-        // move pobj
-        pobj = helper->moveAddress(pobj, fmt);
-        // next fmt
-        __nextFmt(schema, fmt);
-    }
-    return (Reflex_LenType) pobj;
-}
 #endif // REFLEX_FORMAT_MODE_OFFSET
 
-#if REFLEX_SUPPORT_COMPLEX_TYPE
+#if REFLEX_SUPPORT_TYPE_COMPLEX
 
 static Reflex_Result Reflex_Complex_Begin_Driver(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
     return reflex->Driver->Category[fmt->Fields.Category]->fnComplexBegin(reflex, obj, fmt);
@@ -553,7 +460,7 @@ Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypePa
 #endif
 
 Reflex_Result Reflex_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField) {
-#if REFLEX_SUPPORT_COMPLEX_TYPE
+#if REFLEX_SUPPORT_TYPE_COMPLEX
     reflex->PObj = obj;
     reflex->AlignSize = 0;
     reflex->VariableIndexOffset = 0;
@@ -565,13 +472,155 @@ Reflex_Result Reflex_scan(Reflex* reflex, void* obj) {
     return Reflex_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
+Reflex_LenType Reflex_sizeType(const Reflex_TypeParams* fmt) {
+    return (Reflex_LenType) REFLEX_HELPER[fmt->Fields.Category].moveAddress((void*) 0, fmt);
+}
+
+#if REFLEX_SUPPORT_SIZE_FN
+
+#if REFLEX_FORMAT_MODE_PARAM
+
+Reflex_LenType Reflex_Param_sizeNormal(const Reflex_Schema* schema) {
+    uint8_t* pobj = (uint8_t*) 0;
+    const Reflex_Type_Helper* helper;
+    const Reflex_TypeParams* fmt = schema->Fmt;
+    Reflex_LenType len = schema->Len;
+    Reflex_LenType objsize = 0;
+    __isCustom_init(schema);
+
+    while (len-- > 0) {
+        helper = &REFLEX_HELPER[fmt->Fields.Category];
+        if (objsize < PRIMARY_TYPE_SIZE[fmt->Fields.Primary]) {
+            objsize = PRIMARY_TYPE_SIZE[fmt->Fields.Primary];
+        }
+        // check align
+        pobj = helper->alignAddress(pobj, fmt);
+        // move pobj
+        pobj = helper->moveAddress(pobj, fmt);
+        // next fmt
+        __nextFmt(schema, fmt);
+    }
+
+    pobj = Reflex_alignAddress(pobj, objsize);
+
+    return (Reflex_LenType) pobj;
+}
+
+Reflex_LenType Reflex_Param_sizePacked(const Reflex_Schema* schema) {
+    uint8_t* pobj = (uint8_t*) 0;
+    const Reflex_Type_Helper* helper;
+    const Reflex_TypeParams* fmt = schema->Fmt;
+    Reflex_LenType len = schema->Len;
+    __isCustom_init(schema);
+
+    while (len-- > 0) {
+        helper = &REFLEX_HELPER[fmt->Fields.Category];
+        // move pobj
+        pobj = helper->moveAddress(pobj, fmt);
+        // next fmt
+        __nextFmt(schema, fmt);
+    }
+    return (Reflex_LenType) pobj;
+}
+
+#endif // REFLEX_FORMAT_MODE_PARAM
+
+#if REFLEX_FORMAT_MODE_PRIMARY
+
+Reflex_LenType Reflex_Primary_sizeNormal(const Reflex_Schema* schema) {
+    Reflex_TypeParams fmt = {0};
+    uint8_t* pobj = (uint8_t*) 0;
+    const Reflex_Type_Helper* helper;
+    const uint8_t* pfmt = schema->PrimaryFmt;
+    Reflex_LenType objsize = 0;
+
+    while (*pfmt != Reflex_Type_Unknown) {
+        fmt.Type = *pfmt++;
+        helper = &REFLEX_HELPER[fmt.Fields.Category];
+        if (objsize < PRIMARY_TYPE_SIZE[fmt.Type]) {
+            objsize = PRIMARY_TYPE_SIZE[fmt.Type];
+        }
+        // check align
+        pobj = helper->alignAddress(pobj, &fmt);
+        // move pobj
+        pobj = helper->moveAddress(pobj, &fmt);
+    }
+
+    pobj = Reflex_alignAddress(pobj, objsize);
+
+    return (Reflex_LenType) pobj;
+}
+
+Reflex_LenType Reflex_Primary_sizePacked(const Reflex_Schema* schema) {
+    Reflex_TypeParams fmt = {0};
+    uint8_t* pobj = (uint8_t*) 0;
+    const Reflex_Type_Helper* helper;
+    const uint8_t* pfmt = schema->PrimaryFmt;
+
+    while (*pfmt != Reflex_Type_Unknown) {
+        fmt.Type = *pfmt++;
+        helper = &REFLEX_HELPER[fmt.Fields.Category];
+        // move pobj
+        pobj = helper->moveAddress(pobj, &fmt);
+    }
+    return (Reflex_LenType) pobj;
+}
+
+#endif // REFLEX_FORMAT_MODE_PRIMARY
+
+#if REFLEX_FORMAT_MODE_OFFSET
+
+Reflex_LenType Reflex_Offset_sizeNormal(const Reflex_Schema* schema) {
+    uint8_t* pobj = (uint8_t*) 0;
+    const Reflex_TypeParams* fmt = schema->Fmt;
+    Reflex_LenType len = schema->Len;
+    Reflex_LenType objsize = 0;
+    const Reflex_TypeParams* maxOffset = fmt;
+    __isCustom_init(schema);
+
+    while (len-- > 0) {
+        if (objsize < PRIMARY_TYPE_SIZE[fmt->Fields.Primary]) {
+            objsize = PRIMARY_TYPE_SIZE[fmt->Fields.Primary];
+        }
+        // find max offset
+        if (maxOffset->Offset < fmt->Offset) {
+            maxOffset = fmt;
+        }
+        // next fmt
+        __nextFmt(schema, fmt);
+    }
+    // max offset + size
+    pobj = (uint8_t*) (maxOffset->Offset + REFLEX_HELPER[maxOffset->Fields.Category].itemSize(maxOffset));
+    // align to biggest field
+    pobj = Reflex_alignAddress(pobj, objsize);
+
+    return (Reflex_LenType) pobj;
+}
+
+Reflex_LenType Reflex_Offset_sizePacked(const Reflex_Schema* schema) {
+    uint8_t* pobj = (uint8_t*) 0;
+    const Reflex_Type_Helper* helper;
+    const Reflex_TypeParams* fmt = schema->Fmt;
+    Reflex_LenType len = schema->Len;
+    __isCustom_init(schema);
+
+    while (len-- > 0) {
+        helper = &REFLEX_HELPER[fmt->Fields.Category];
+        // move pobj
+        pobj = helper->moveAddress(pobj, fmt);
+        // next fmt
+        __nextFmt(schema, fmt);
+    }
+    return (Reflex_LenType) pobj;
+}
+
+#endif // REFLEX_FORMAT_MODE_OFFSET
+
 Reflex_LenType Reflex_size(const Reflex_Schema* schema, Reflex_SizeType type) {
     return REFLEX_SIZE[schema->FormatMode][type](schema);
 }
 
-Reflex_LenType Reflex_sizeType(const Reflex_TypeParams* fmt) {
-    return (Reflex_LenType) REFLEX_HELPER[fmt->Fields.Category].moveAddress((void*) 0, fmt);
-}
+#endif // REFLEX_SUPPORT_SIZE_FN
 
 void Reflex_setCallback(Reflex* reflex, Reflex_OnFieldFn fn) {
     reflex->onField = fn;
@@ -587,7 +636,7 @@ void Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact) {
 }
 
 Reflex_LenType Reflex_getVariableIndex(Reflex* reflex) {
-#if REFLEX_SUPPORT_COMPLEX_TYPE
+#if REFLEX_SUPPORT_TYPE_COMPLEX
     return reflex->VariableIndex + reflex->VariableIndexOffset;
 #else
     return reflex->VariableIndex;
