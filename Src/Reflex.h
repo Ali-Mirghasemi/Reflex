@@ -426,6 +426,7 @@ struct __Reflex {
 };
 
 // ---------------------- Main API ----------------------
+void Reflex_init(Reflex* reflex, const Reflex_Schema* schema);
 Reflex_Result Reflex_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
 Reflex_Result Reflex_scan(Reflex* reflex, void* obj);
 

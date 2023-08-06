@@ -667,6 +667,16 @@ void* Reflex_getBuffer(Reflex* reflex) {
 }
 #endif
 
+/**
+ * @brief This function let you initialize reflex object
+ * 
+ * @param reflex address of reflex object
+ * @param schema address of schema 
+ */
+void Reflex_init(Reflex* reflex, const Reflex_Schema* schema) {
+    reflex->Schema = schema;
+}
+
 static Reflex_Result Reflex_scan_Callback(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
     return reflex->onField(reflex, obj, fmt);
 }
