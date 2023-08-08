@@ -5,7 +5,9 @@ typedef void* (*Reflex_AlignAddressFn)(void* pValue, const Reflex_TypeParams* fm
 typedef void* (*Reflex_MoveAddressFn)(void* pValue, const Reflex_TypeParams* fmt);
 typedef Reflex_LenType (*Reflex_ItemSizeFn)(const Reflex_TypeParams* fmt);
 typedef Reflex_Result (*Reflex_ScanFn)(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
+typedef Reflex_GetResult (*Reflex_GetFieldFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* filedFmt, Reflex_Field* field);
 typedef Reflex_Result (*Reflex_ComplexScanFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
+typedef Reflex_GetResult (*Reflex_ComplexGetFieldFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* filedFmt, Reflex_Field* field);
 typedef Reflex_LenType (*Reflex_SizeFn)(const Reflex_Schema* schema);
 /**
  * @brief This struct hold helper functions for manage scan
@@ -51,8 +53,8 @@ static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
 #endif
 
 #if REFLEX_SUPPORT_TYPE_COMPLEX
-    #define __biggestField_init()               Reflex_LenType biggestField = 0, tmpSize
-    #define __biggestField_init_NoTemp()        Reflex_LenType biggestField = 0
+    #define __biggestField_init()               Reflex_LenType biggestField = 1, tmpSize
+    #define __biggestField_init_NoTemp()        Reflex_LenType biggestField = 1
     #define __updateBiggestField(SIZE)          if (biggestField < (SIZE)) { \
                                                     biggestField = (SIZE); \
                                                 }
@@ -62,8 +64,8 @@ static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
                                                 }
 
 
-    #define __startCheckComplexType(fmt)        if (fmt->Fields.Primary == Reflex_PrimaryType_Complex) { \
-                                                    result = Reflex_Complex_scanRaw(reflex, pobj, fmt, onField); \
+    #define __startCheckComplexType(CB, ...)    if (fmt->Fields.Primary == Reflex_PrimaryType_Complex) { \
+                                                    result = CB(reflex, pobj, __VA_ARGS__); \
                                                     __updateBiggestField(reflex->AlignSize); \
                                                     pobj = reflex->PObj; \
                                                 } \
@@ -75,8 +77,45 @@ static const uint8_t PRIMARY_TYPE_SIZE[Reflex_PrimaryType_Length] = {
     #define __biggestField_init()
     #define __updateBiggestField(SIZE)
     #define __alignObject()
-    #define __startCheckComplexType(fmt)
+    #define __startCheckComplexType(CB, ...)
     #define __endCheckComplexType(fmt, helper)
+#endif
+
+#if REFLEX_SUPPORT_BREAK_LAYER && REFLEX_SUPPORT_TYPE_COMPLEX
+    #define __breakScanArray(reflex)            if (reflex->BreakLayer) { \
+                                                    reflex->BreakLayer = 0; \
+                                                    break; \
+                                                }
+    #define __breakScanArray2D(reflex)          if (reflex->BreakLayer2D) { \
+                                                    reflex->BreakLayer = 0; \
+                                                    reflex->BreakLayer2D = 0; \
+                                                    break; \
+                                                }                                                
+#else
+    #define __breakScanArray(reflex)
+    #define __breakScanArray2D(reflex)
+#endif
+
+#if REFLEX_SUPPORT_VAR_INDEX
+    #define __resetVarIndex(reflex)             reflex->VariableIndex = 0
+    #define __increaseVarIndex(reflex)          reflex->VariableIndex++
+    #define __updateOffsetIndex(reflex)         reflex->VariableIndexOffset += reflex->VariableIndex
+    #define __increaseLayerIndex(reflex)        reflex->LayerIndex++
+    #define __decreaseLayerIndex(reflex)        reflex->LayerIndex--
+#else
+    #define __resetVarIndex(reflex)
+    #define __increaseVarIndex(reflex)
+    #define __updateOffsetIndex(reflex)
+    #define __increaseLayerIndex(reflex)
+    #define __decreaseLayerIndex(reflex)
+#endif
+
+#if   REFLEX_ARCH == REFLEX_ARCH_64BIT
+    typedef uint64_t Reflex_PtrType;
+#elif REFLEX_ARCH == REFLEX_ARCH_32BIT
+    typedef uint32_t Reflex_PtrType;
+#else
+    typedef uint16_t Reflex_PtrType;
 #endif
 
 static const Reflex_ScanFn REFLEX_SCAN[] = {
@@ -91,12 +130,25 @@ static const Reflex_ScanFn REFLEX_SCAN[] = {
 #endif
 };
 
+static const Reflex_GetFieldFn REFLEX_GET_FIELD[] = {
+#if REFLEX_FORMAT_MODE_PARAM
+    Reflex_Param_getField,
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+    Reflex_Primary_getField,
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+    Reflex_Offset_getField,
+#endif
+};
+
 static const Reflex_OnFieldFn REFLEX_ON_FIELD_FNS[3] = {
     Reflex_scan_Callback,
     Reflex_scan_Driver,
     Reflex_scan_Compact,
 };
 
+#if REFLEX_SUPPORT_SIZE_FN
 static const Reflex_SizeFn REFLEX_SIZE[3][2] = {
 #if REFLEX_FORMAT_MODE_PARAM
     { Reflex_Param_sizeNormal, Reflex_Param_sizePacked, },
@@ -108,21 +160,23 @@ static const Reflex_SizeFn REFLEX_SIZE[3][2] = {
     { Reflex_Offset_sizeNormal, Reflex_Offset_sizePacked, },
 #endif
 };
+#endif // REFLEX_SUPPORT_SIZE_FN
 
-#if REFLEX_ARCH == 8
+#if REFLEX_ARCH == REFLEX_ARCH_8BIT
     #define Reflex_alignAddress(pValue, objSize)        pValue
 #else
 static void* Reflex_alignAddress(void* pValue, Reflex_LenType objSize) {
-    uint32_t pobj = (uint32_t) pValue;
+    Reflex_PtrType pobj = (Reflex_PtrType) pValue;
+    Reflex_PtrType pad;
 
-#if REFLEX_ARCH != 64
+#if REFLEX_ARCH != REFLEX_ARCH_64BIT
     if (objSize > REFLEX_ARCH_BYTES) {
         objSize = REFLEX_ARCH_BYTES;
     }
 #endif
 
-    if (pobj % objSize != 0) {
-        pobj += objSize - pobj % objSize;
+    if ((pad = pobj & ((Reflex_PtrType) objSize - 1)) != 0) {
+        pobj += objSize - pad;
     }
 
     return (void*) pobj;
@@ -194,12 +248,12 @@ Reflex_Result Reflex_Param_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn o
     Reflex_LenType len = reflex->Schema->Len;
     __isCustom_init(reflex->Schema);
     __biggestField_init();
-    reflex->VariableIndex = 0;
+    __resetVarIndex(reflex);
     reflex->Obj = obj;
 
     while (len-- > 0 && result == REFLEX_OK) {
         // start check complex type
-        __startCheckComplexType(fmt);
+        __startCheckComplexType(Reflex_Complex_scanRaw, fmt, onField);
         helper = &REFLEX_HELPER[fmt->Fields.Category];
         // check align
         pobj = helper->alignAddress(pobj, fmt);
@@ -209,7 +263,7 @@ Reflex_Result Reflex_Param_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn o
         }
         // move pobj
         pobj = helper->moveAddress(pobj, fmt);
-        reflex->VariableIndex++;
+        __increaseVarIndex(reflex);
         // end check complex type
         __endCheckComplexType(fmt, helper);
         // next fmt
@@ -224,6 +278,50 @@ Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj) {
     return Reflex_Param_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
+Reflex_GetResult Reflex_Param_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field) {
+    Reflex_GetResult result = Reflex_GetResult_NotFound;
+    uint8_t* pobj = (uint8_t*) obj;
+    const Reflex_Type_Helper* helper;
+    const Reflex_TypeParams* fmt = reflex->Schema->Fmt;
+    Reflex_LenType len = reflex->Schema->Len;
+    __isCustom_init(reflex->Schema);
+    __biggestField_init();
+    __resetVarIndex(reflex);
+    reflex->Obj = obj;
+
+    while (len-- > 0 && result != Reflex_GetResult_Ok) {
+        // start check complex type
+        __startCheckComplexType(Reflex_Complex_getField, fmt, fieldFmt, field);
+        helper = &REFLEX_HELPER[fmt->Fields.Category];
+        // check align
+        pobj = helper->alignAddress(pobj, fmt);
+        // check field
+        if (fmt == fieldFmt) {
+            // fill field
+            field->Object = pobj;
+            field->Fmt = fmt;
+        #if REFLEX_SUPPORT_VAR_INDEX
+            field->Index = reflex->VariableIndex;
+        #if REFLEX_SUPPORT_TYPE_COMPLEX
+            field->IndexOffset = reflex->VariableIndexOffset;
+            field->LayerIndex = reflex->LayerIndex;
+        #endif
+        #endif // REFLEX_SUPPORT_VAR_INDEX
+            return Reflex_GetResult_Ok;
+        }
+        // move pobj
+        pobj = helper->moveAddress(pobj, fmt);
+        __increaseVarIndex(reflex);
+        // end check complex type
+        __endCheckComplexType(fmt, helper);
+        // next fmt
+        __nextFmt(reflex->Schema, fmt);
+    }
+    __alignObject();
+
+    return result;
+}
+
 #endif // REFLEX_FORMAT_MODE_PARAM
 
 #if REFLEX_FORMAT_MODE_PRIMARY
@@ -234,7 +332,7 @@ Reflex_Result Reflex_Primary_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn
     const Reflex_Type_Helper* helper;
     const uint8_t* pfmt = reflex->Schema->PrimaryFmt;
     __biggestField_init_NoTemp();
-    reflex->VariableIndex = 0;
+    __resetVarIndex(reflex);
     reflex->Obj = obj;
 
     while (*pfmt != Reflex_Type_Unknown && result == REFLEX_OK) {
@@ -247,7 +345,7 @@ Reflex_Result Reflex_Primary_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn
             result = onField(reflex, pobj, &fmt);
         }
         __updateBiggestField(PRIMARY_TYPE_SIZE[fmt.Fields.Primary]);
-        reflex->VariableIndex++;
+        __increaseVarIndex(reflex);
         // move pobj
         pobj = helper->moveAddress(pobj, &fmt);
     }
@@ -260,14 +358,53 @@ Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj) {
     return Reflex_Primary_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
 }
 
-Reflex_Result Reflex_Param_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* field, Reflex_OnFieldFn onField) {
+Reflex_GetResult Reflex_Primary_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field) {
+    Reflex_TypeParams fmt = {0};
+    uint8_t* pobj = (uint8_t*) obj;
+    const Reflex_Type_Helper* helper;
+    const uint8_t* pfmt = reflex->Schema->PrimaryFmt;
+    __biggestField_init_NoTemp();
+    __resetVarIndex(reflex);
+    reflex->Obj = obj;
+
+    while (*pfmt != Reflex_Type_Unknown) {
+        fmt.Type = *pfmt;
+        helper = &REFLEX_HELPER[fmt.Fields.Category];
+        // check align
+        pobj = helper->alignAddress(pobj, &fmt);
+        // check field
+        if (pfmt == fieldFmt) {
+            // fill field
+            field->Object = pobj;
+            field->PrimaryFmt = pfmt;
+        #if REFLEX_SUPPORT_VAR_INDEX
+            field->Index = reflex->VariableIndex;
+        #if REFLEX_SUPPORT_TYPE_COMPLEX
+            field->IndexOffset = reflex->VariableIndexOffset;
+            field->LayerIndex = reflex->LayerIndex;
+        #endif
+        #endif // REFLEX_SUPPORT_VAR_INDEX
+            return Reflex_GetResult_Ok;
+        }
+        __updateBiggestField(PRIMARY_TYPE_SIZE[fmt.Fields.Primary]);
+        __increaseVarIndex(reflex);
+        // move pobj
+        pobj = helper->moveAddress(pobj, &fmt);
+        pfmt++;
+    }
+    __alignObject();
+
+    return Reflex_GetResult_NotFound;
+}
+
+Reflex_Result Reflex_Param_scanFieldRaw(Reflex* reflex, void* obj, const void* field, Reflex_OnFieldFn onField) {
     Reflex_Result result = REFLEX_OK;
     Reflex_TypeParams fmt = {0};
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const uint8_t* pfmt = reflex->Schema->PrimaryFmt;
     __biggestField_init_NoTemp();
-    reflex->VariableIndex = 0;
+    __resetVarIndex(reflex);
     reflex->Obj = obj;
 
     while (*pfmt != Reflex_Type_Unknown && result == REFLEX_OK) {
@@ -280,7 +417,7 @@ Reflex_Result Reflex_Param_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_
             result = onField(reflex, pobj, &fmt);
         }
         __updateBiggestField(PRIMARY_TYPE_SIZE[fmt.Fields.Primary]);
-        reflex->VariableIndex++;
+        __increaseVarIndex(reflex);
         // move pobj
         pobj = helper->moveAddress(pobj, &fmt);
     }
@@ -299,19 +436,19 @@ Reflex_Result Reflex_Offset_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn 
     Reflex_LenType len = reflex->Schema->Len;
     __isCustom_init(reflex->Schema);
     __biggestField_init();
-    reflex->VariableIndex = 0;
+    __resetVarIndex(reflex);
     reflex->Obj = obj;
 
     while (len-- > 0 && result == REFLEX_OK) {
         // strat check complex type
-        __startCheckComplexType(fmt);
+        __startCheckComplexType(Reflex_Complex_scanRaw, fmt, onField);
         // check align
         pobj = (uint8_t*) obj + fmt->Offset;
         // onField
         if (onField) {
             result = onField(reflex, pobj, fmt);
         }
-        reflex->VariableIndex++;
+        __increaseVarIndex(reflex);
         // end check complex type
         __endCheckComplexType(fmt, &REFLEX_HELPER[fmt->Fields.Category]);
         // next fmt
@@ -324,6 +461,46 @@ Reflex_Result Reflex_Offset_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn 
 
 Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj) {
     return Reflex_Offset_scanRaw(reflex, obj, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
+}
+
+Reflex_GetResult Reflex_Offset_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field) {
+    Reflex_GetResult result = Reflex_GetResult_NotFound;
+    uint8_t* pobj = (uint8_t*) obj;
+    const Reflex_TypeParams* fmt = reflex->Schema->Fmt;
+    Reflex_LenType len = reflex->Schema->Len;
+    __isCustom_init(reflex->Schema);
+    __biggestField_init();
+    __resetVarIndex(reflex);
+    reflex->Obj = obj;
+
+    while (len-- > 0 && result != Reflex_GetResult_Ok) {
+        // strat check complex type
+        __startCheckComplexType(Reflex_Complex_getField, fmt, fieldFmt, field);
+        // check align
+        pobj = (uint8_t*) obj + fmt->Offset;
+        // check field
+        if (fmt == fieldFmt) {
+            // fill field
+            field->Object = pobj;
+            field->Fmt = fmt;
+        #if REFLEX_SUPPORT_VAR_INDEX
+            field->Index = reflex->VariableIndex;
+        #if REFLEX_SUPPORT_TYPE_COMPLEX
+            field->IndexOffset = reflex->VariableIndexOffset;
+            field->LayerIndex = reflex->LayerIndex;
+        #endif
+        #endif // REFLEX_SUPPORT_VAR_INDEX
+            return Reflex_GetResult_Ok;
+        }
+        __increaseVarIndex(reflex);
+        // end check complex type
+        __endCheckComplexType(fmt, &REFLEX_HELPER[fmt->Fields.Category]);
+        // next fmt
+        __nextFmt(reflex->Schema, fmt);
+    }
+    __alignObject();
+
+    return result;
 }
 
 #endif // REFLEX_FORMAT_MODE_OFFSET
@@ -359,14 +536,10 @@ static Reflex_Result Reflex_Complex_Primary_scan(Reflex* reflex, void* obj, cons
     Reflex_Result res;
     const Reflex_Schema* tmpSchema = reflex->Schema;
 
-    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
-
-    reflex->VariableIndexOffset += reflex->VariableIndex;
+    __updateOffsetIndex(reflex);
     reflex->Schema = fmt->Schema;
     res = REFLEX_SCAN[(uint8_t) reflex->Schema->FormatMode](reflex, obj, onField);
     reflex->Schema = tmpSchema;
-
-    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
 
     return res;
 }
@@ -375,17 +548,13 @@ static Reflex_Result Reflex_Complex_Pointer_scan(Reflex* reflex, void* obj, cons
     Reflex_Result res;
     const Reflex_Schema* tmpSchema = reflex->Schema;
 
-    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
-
-    reflex->VariableIndexOffset += reflex->VariableIndex;
+    __updateOffsetIndex(reflex);
     reflex->Schema = fmt->Schema;
     res = REFLEX_SCAN[(uint8_t) reflex->Schema->FormatMode](reflex, *(void**) obj, onField);
     reflex->Schema = tmpSchema;
     reflex->Obj = obj;
     // move obj
     reflex->PObj = Reflex_Pointer_moveAddress(obj, fmt);
-
-    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
 
     return res;
 }
@@ -394,14 +563,11 @@ static Reflex_Result Reflex_Complex_Array_scan(Reflex* reflex, void* obj, const 
     Reflex_Result res = REFLEX_OK;
     Reflex_LenType len = fmt->Len;
 
-    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
-
     while (len-- > 0 && res == REFLEX_OK) {
         res = Reflex_Complex_Primary_scan(reflex, obj, fmt, onField);
         obj = reflex->PObj;
+        __breakScanArray(reflex);
     }
-
-    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
 
     return res;
 }
@@ -410,14 +576,11 @@ static Reflex_Result Reflex_Complex_PointerArray_scan(Reflex* reflex, void* obj,
     Reflex_Result res = REFLEX_OK;
     Reflex_LenType len = fmt->Len;
 
-    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
-
     while (len-- > 0 && res == REFLEX_OK) {
         res = Reflex_Complex_Pointer_scan(reflex, obj, fmt, onField);
         obj = reflex->PObj;
+        __breakScanArray(reflex);
     }
-
-    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
 
     return res;
 }
@@ -427,17 +590,15 @@ static Reflex_Result Reflex_Complex_Array2D_scan(Reflex* reflex, void* obj, cons
     Reflex_LenType len;
     Reflex_LenType mlen = fmt->MLen;
 
-    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
-
     while (mlen-- > 0 && res == REFLEX_OK) {
         len = fmt->Len;
         while (len-- > 0 && res == REFLEX_OK) {
             res = Reflex_Complex_Primary_scan(reflex, obj, fmt, onField);
             obj = reflex->PObj;
+            __breakScanArray(reflex);
         }
+        __breakScanArray2D(reflex);
     }
-
-    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
 
     return res;
 }
@@ -451,8 +612,149 @@ static const Reflex_ComplexScanFn REFLEX_COMPLEX[] = {
 };
 
 Reflex_Result Reflex_Complex_scanRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField) {
-    return REFLEX_COMPLEX[fmt->Fields.Category](reflex, obj, fmt, onField);
+    Reflex_Result result;
+    // Call begin callback
+    REFLEX_COMPLEX_BEGIN[reflex->FunctionMode](reflex, obj, fmt);
+    // Call scan call back for complex field
+    __increaseLayerIndex(reflex);
+    result = REFLEX_COMPLEX[fmt->Fields.Category](reflex, obj, fmt, onField);
+    __decreaseLayerIndex(reflex);
+    // Call end callback
+    REFLEX_COMPLEX_END[reflex->FunctionMode](reflex, obj, fmt);
+
+    return result;
 }
+
+#if REFLEX_SUPPORT_SCAN_FIELD
+
+static Reflex_GetResult Reflex_Complex_Primary_getField(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* fieldFmt, Reflex_Field* field) {
+    Reflex_GetResult res;
+    const Reflex_Schema* tmpSchema = reflex->Schema;
+    Reflex_LenType lastIndex = reflex->VariableIndex;
+    Reflex_LenType lastOffset = reflex->VariableIndexOffset;
+
+    reflex->VariableIndexOffset += reflex->VariableIndex;
+    reflex->Schema = fmt->Schema;
+    res = REFLEX_GET_FIELD[(uint8_t) reflex->Schema->FormatMode](reflex, obj, fieldFmt, field);
+    reflex->VariableIndexOffset = lastOffset + reflex->VariableIndex - lastIndex;
+    reflex->VariableIndex = lastIndex;
+    reflex->Schema = tmpSchema;
+
+    return res;
+}
+
+static Reflex_GetResult Reflex_Complex_Pointer_getField(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* fieldFmt, Reflex_Field* field) {
+    Reflex_GetResult res;
+    const Reflex_Schema* tmpSchema = reflex->Schema;
+    Reflex_LenType lastIndex = reflex->VariableIndex;
+    Reflex_LenType lastOffset = reflex->VariableIndexOffset;
+
+    reflex->VariableIndexOffset += reflex->VariableIndex;
+    reflex->Schema = fmt->Schema;
+    res = REFLEX_GET_FIELD[(uint8_t) reflex->Schema->FormatMode](reflex, *(void**) obj, fieldFmt, field);
+    reflex->Schema = tmpSchema;
+    reflex->VariableIndexOffset = lastOffset + reflex->VariableIndex - lastIndex;
+    reflex->VariableIndex = lastIndex;
+    reflex->Obj = obj;
+    // move obj
+    reflex->PObj = Reflex_Pointer_moveAddress(obj, fmt);
+
+    return res;
+}
+
+static Reflex_GetResult Reflex_Complex_Array_getField(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* fieldFmt, Reflex_Field* field) {
+    Reflex_GetResult res = Reflex_GetResult_NotFound;
+    Reflex_LenType len = fmt->Len;
+
+    while (len-- > 0 && res != Reflex_GetResult_Ok) {
+        res = Reflex_Complex_Primary_getField(reflex, obj, fmt, fieldFmt, field);
+        obj = reflex->PObj;
+    #if REFLEX_SUPPORT_BREAK_LAYER
+        if (reflex->BreakLayer) {
+            reflex->BreakLayer = 0;
+            break;
+        }
+    #endif
+    }
+
+    return res;
+}
+
+static Reflex_GetResult Reflex_Complex_PointerArray_getField(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* fieldFmt, Reflex_Field* field) {
+    Reflex_GetResult res = Reflex_GetResult_NotFound;
+    Reflex_LenType len = fmt->Len;
+
+    while (len-- > 0 && res != Reflex_GetResult_Ok) {
+        res = Reflex_Complex_Pointer_getField(reflex, obj, fmt, fieldFmt, field);
+        obj = reflex->PObj;
+    #if REFLEX_SUPPORT_BREAK_LAYER
+        if (reflex->BreakLayer) {
+            reflex->BreakLayer = 0;
+            break;
+        }
+    #endif
+    }
+
+    return res;
+}
+
+static Reflex_GetResult Reflex_Complex_Array2D_getField(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* fieldFmt, Reflex_Field* field) {
+    Reflex_GetResult res = Reflex_GetResult_NotFound;
+    Reflex_LenType len;
+    Reflex_LenType mlen = fmt->MLen;
+
+    while (mlen-- > 0 && res != Reflex_GetResult_Ok) {
+        len = fmt->Len;
+        while (len-- > 0 && res != Reflex_GetResult_Ok) {
+            res = Reflex_Complex_Primary_getField(reflex, obj, fmt, fieldFmt, field);
+            obj = reflex->PObj;
+        #if REFLEX_SUPPORT_BREAK_LAYER
+            if (reflex->BreakLayer) {
+                reflex->BreakLayer = 0;
+                break;
+            }
+        #endif
+        }
+    }
+
+    return res;
+}
+
+static const Reflex_ComplexGetFieldFn REFLEX_COMPLEX_GET_FIELD[] = {
+    Reflex_Complex_Primary_getField,
+    Reflex_Complex_Pointer_getField,
+    Reflex_Complex_Array_getField,
+    Reflex_Complex_PointerArray_getField,
+    Reflex_Complex_Array2D_getField,
+};
+
+Reflex_GetResult Reflex_Complex_getField(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* fieldFmt, Reflex_Field* field) {
+    // check field
+    if (fmt == fieldFmt) {
+        // fill field
+        field->Fmt = fmt;
+        fmt = fmt->Schema->Fmt;
+        field->Object = Reflex_alignAddress(obj, REFLEX_HELPER[fmt->Fields.Category].itemSize(fmt));
+    #if REFLEX_SUPPORT_VAR_INDEX
+        field->Index = reflex->VariableIndex;
+    #if REFLEX_SUPPORT_TYPE_COMPLEX
+        field->IndexOffset = reflex->VariableIndexOffset;
+        field->LayerIndex = reflex->LayerIndex;
+    #endif
+    #endif //REFLEX_SUPPORT_VAR_INDEX
+        return Reflex_GetResult_Ok;
+    }
+    else {
+        Reflex_GetResult result;
+        // Call getField
+        __increaseLayerIndex(reflex);
+        result = REFLEX_COMPLEX_GET_FIELD[fmt->Fields.Category](reflex, obj, fmt, fieldFmt, field);
+        __decreaseLayerIndex(reflex);
+
+        return result;
+    }
+}
+#endif // REFLEX_SUPPORT_SCAN_FIELD
 
 Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField) {
     return Reflex_Complex_scanRaw(reflex, obj, fmt, REFLEX_ON_FIELD_FNS[reflex->FunctionMode]);
@@ -462,8 +764,11 @@ Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypePa
 Reflex_Result Reflex_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField) {
 #if REFLEX_SUPPORT_TYPE_COMPLEX
     reflex->PObj = obj;
-    reflex->AlignSize = 0;
+    reflex->AlignSize = 1;
+#if REFLEX_SUPPORT_VAR_INDEX
     reflex->VariableIndexOffset = 0;
+    reflex->LayerIndex = 0;
+#endif 
 #endif
     return REFLEX_SCAN[(uint8_t) reflex->Schema->FormatMode](reflex, obj, onField);
 }
@@ -474,6 +779,19 @@ Reflex_Result Reflex_scan(Reflex* reflex, void* obj) {
 
 Reflex_LenType Reflex_sizeType(const Reflex_TypeParams* fmt) {
     return (Reflex_LenType) REFLEX_HELPER[fmt->Fields.Category].moveAddress((void*) 0, fmt);
+}
+
+Reflex_GetResult Reflex_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field) {
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    reflex->PObj = obj;
+    reflex->AlignSize = 1;
+#if REFLEX_SUPPORT_VAR_INDEX
+    reflex->VariableIndexOffset = 0;
+    reflex->LayerIndex = 0;
+#endif
+#endif
+    return REFLEX_GET_FIELD[(uint8_t) reflex->Schema->FormatMode](reflex, obj, fieldFmt, field);
+
 }
 
 #if REFLEX_SUPPORT_SIZE_FN
@@ -634,7 +952,7 @@ void Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact) {
     reflex->CompactFns = compact;
     reflex->FunctionMode = Reflex_FunctionMode_Compact;
 }
-
+#if REFLEX_SUPPORT_VAR_INDEX
 Reflex_LenType Reflex_getVariableIndex(Reflex* reflex) {
 #if REFLEX_SUPPORT_TYPE_COMPLEX
     return reflex->VariableIndex + reflex->VariableIndexOffset;
@@ -642,6 +960,15 @@ Reflex_LenType Reflex_getVariableIndex(Reflex* reflex) {
     return reflex->VariableIndex;
 #endif
 }
+Reflex_LenType Reflex_getVariableIndexReal(Reflex* reflex) {
+    return reflex->VariableIndex;
+}
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+Reflex_LenType Reflex_getVariableIndexOffset(Reflex* reflex) {
+    return reflex->VariableIndexOffset;
+}
+#endif
+#endif // REFLEX_SUPPORT_VAR_INDEX
 Reflex_LenType Reflex_getVariablesLength(Reflex* reflex) {
     return reflex->Schema->Len;
 }
@@ -667,15 +994,59 @@ void* Reflex_getBuffer(Reflex* reflex) {
 }
 #endif
 
+#if REFLEX_SUPPORT_SCAN_FIELD
+void*          Reflex_Field_getVariable(Reflex_Field* reflex) {
+    return reflex->Object;
+}
+Reflex_LenType Reflex_Field_getIndex(Reflex_Field* reflex) {
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    return reflex->Index + reflex->IndexOffset;
+#else
+    return reflex->Index;
+#endif
+}
+Reflex_LenType Reflex_Field_getIndexReal(Reflex_Field* reflex) {
+    return reflex->Index;
+}
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+Reflex_LenType Reflex_Field_getLayerIndex(Reflex_Field* reflex) {
+    return reflex->LayerIndex; 
+}
+Reflex_LenType Reflex_Field_getIndexOffset(Reflex_Field* reflex) {
+    return reflex->IndexOffset;
+}
+#endif
+
+#endif // REFLEX_SUPPORT_SCAN_FIELD
+
 /**
  * @brief This function let you initialize reflex object
- * 
+ *
  * @param reflex address of reflex object
- * @param schema address of schema 
+ * @param schema address of schema
  */
 void Reflex_init(Reflex* reflex, const Reflex_Schema* schema) {
     reflex->Schema = schema;
 }
+#if REFLEX_SUPPORT_BREAK_LAYER
+/**
+ * @brief This function help you to break scan for Complex arrays
+ *
+ * @param reflex
+ */
+void Reflex_break(Reflex* reflex) {
+    reflex->BreakLayer = 1;
+}
+/**
+ * @brief This function allows you to break scan for Complex Array2D 
+ * 
+ * @param reflex 
+ */
+void Reflex_break2D(Reflex* reflex) {
+    reflex->BreakLayer = 1;
+    reflex->BreakLayer2D = 1;
+}
+#endif
 
 static Reflex_Result Reflex_scan_Callback(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt) {
     return reflex->onField(reflex, obj, fmt);
