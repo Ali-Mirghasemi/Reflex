@@ -48,7 +48,9 @@ static const char FOOTER[] CONST_VAR_ATTR = "-----------------------------------
 #if REFLEX_SUPPORT_TYPE_COMPLEX
     Test_Result Test_ComplexType(void);
 #endif
-Test_Result Test_Size(void);
+#if REFLEX_SUPPORT_SIZE_FN
+    Test_Result Test_Size(void);
+#endif
 
 #if REFLEX_SUPPORT_SCAN_FIELD
 #if REFLEX_FORMAT_MODE_PARAM
@@ -103,7 +105,9 @@ const TestCase Tests[] = {
     TEST_CASE_INIT(Test_ComplexType_GetField),
 #endif
 #endif // REFLEX_SUPPORT_SCAN_FIELD
+#if REFLEX_SUPPORT_SIZE_FN
     TEST_CASE_INIT(Test_Size),
+#endif
 };
 const uint32_t Tests_Len = sizeof(Tests) / sizeof(Tests[0]);
 
@@ -151,14 +155,14 @@ static void* addressMap[120] = {0};
 Reflex_Result Reflex_checkAddress(Reflex* reflex, void* value, const Reflex_TypeParams* fmt) {
     void** addrMap = reflex->Args;
 
-    if ( addrMap[Reflex_getVariableIndex(reflex)] != value
+    if ( addrMap[Reflex_getVarIndex(reflex)] != value
     #if REFLEX_SUPPORT_TYPE_COMPLEX
         && fmt->Fields.Primary != Reflex_PrimaryType_Complex
     #endif
     ) {
         PRINTF("Idx: %d, Address not match: %X != %X\r\n",
-            Reflex_getVariableIndex(reflex),
-            addrMap[Reflex_getVariableIndex(reflex)],
+            Reflex_getVarIndex(reflex),
+            addrMap[Reflex_getVarIndex(reflex)],
             value
         );
         return 1;
@@ -889,6 +893,7 @@ Test_Result Test_ComplexType_GetField(void) {
 #endif
 #endif
 // -------------------------- Test Size -------------------------
+#if REFLEX_SUPPORT_SIZE_FN
 Test_Result Test_Size(void) {
 
     assert(Num, Reflex_size(&Model1_SCHEMA, Reflex_SizeType_Normal), sizeof(Model1));
@@ -910,6 +915,9 @@ Test_Result Test_Size(void) {
 
     return 0;
 }
+#endif // REFLEX_SUPPORT_SIZE_FN
+
+// -------------------------- Assert Functions -------------------------
 
 void Result_print(Test_Result result) {
     PRINTF("Line: %u, Index: %u\r\n", result >> 16, result & 0xFFFF);
