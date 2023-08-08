@@ -5,7 +5,7 @@ typedef void* (*Reflex_AlignAddressFn)(void* pValue, const Reflex_TypeParams* fm
 typedef void* (*Reflex_MoveAddressFn)(void* pValue, const Reflex_TypeParams* fmt);
 typedef Reflex_LenType (*Reflex_ItemSizeFn)(const Reflex_TypeParams* fmt);
 typedef Reflex_Result (*Reflex_ScanFn)(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
-typedef Reflex_GetResult (*Reflex_GetFieldFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* filedFmt, Reflex_Field* field);
+typedef Reflex_GetResult (*Reflex_GetFieldFn)(Reflex* reflex, void* obj, const void* filedFmt, Reflex_Field* field);
 typedef Reflex_Result (*Reflex_ComplexScanFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
 typedef Reflex_GetResult (*Reflex_ComplexGetFieldFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* filedFmt, Reflex_Field* field);
 typedef Reflex_LenType (*Reflex_SizeFn)(const Reflex_Schema* schema);
