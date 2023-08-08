@@ -28,6 +28,7 @@ typedef struct {
 
 Test_Result Assert_Str(const char* str1, const char* str2, uint16_t line);
 Test_Result Assert_Num(int32_t val1, int32_t val2, uint16_t line);
+Test_Result Assert_Ptr(void* val1, void* val2, uint16_t line);
 void Result_print(Test_Result result);
 void printTitle(uint8_t idx, const char* name);
 static const char FOOTER[] CONST_VAR_ATTR = "----------------------------------------------------------------";
@@ -39,7 +40,7 @@ static const char FOOTER[] CONST_VAR_ATTR = "-----------------------------------
     Test_Result Test_Primary(void);
 #endif
 #if REFLEX_FORMAT_MODE_OFFSET
-    Test_Result Test_ParamsOffset(void);
+    Test_Result Test_Offset(void);
 #endif
 #if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
     Test_Result Test_CustomTypeParams(void);
@@ -48,6 +49,24 @@ static const char FOOTER[] CONST_VAR_ATTR = "-----------------------------------
     Test_Result Test_ComplexType(void);
 #endif
 Test_Result Test_Size(void);
+
+#if REFLEX_SUPPORT_SCAN_FIELD
+#if REFLEX_FORMAT_MODE_PARAM
+    Test_Result Test_Param_GetField(void);
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+    Test_Result Test_Primary_GetField(void);
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+    Test_Result Test_Offset_GetField(void);
+#endif
+#if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
+    Test_Result Test_CustomTypeParams_GetField(void);
+#endif
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    Test_Result Test_ComplexType_GetField(void);
+#endif
+#endif // REFLEX_SUPPORT_SCAN_FIELD
 
 #define TEST_CASE_INIT(NAME)        { .Name = #NAME, .fn = NAME }
 
@@ -59,7 +78,7 @@ const TestCase Tests[] = {
     TEST_CASE_INIT(Test_Primary),
 #endif
 #if REFLEX_FORMAT_MODE_OFFSET
-    TEST_CASE_INIT(Test_ParamsOffset),
+    TEST_CASE_INIT(Test_Offset),
 #endif
 #if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
     TEST_CASE_INIT(Test_CustomTypeParams),
@@ -67,6 +86,23 @@ const TestCase Tests[] = {
 #if REFLEX_SUPPORT_TYPE_COMPLEX
     TEST_CASE_INIT(Test_ComplexType),
 #endif
+#if REFLEX_SUPPORT_SCAN_FIELD
+#if REFLEX_FORMAT_MODE_PARAM
+    TEST_CASE_INIT(Test_Param_GetField),
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+    TEST_CASE_INIT(Test_Primary_GetField),
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+    TEST_CASE_INIT(Test_Offset_GetField),
+#endif
+#if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
+    TEST_CASE_INIT(Test_CustomTypeParams_GetField),
+#endif
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    TEST_CASE_INIT(Test_ComplexType_GetField),
+#endif
+#endif // REFLEX_SUPPORT_SCAN_FIELD
     TEST_CASE_INIT(Test_Size),
 };
 const uint32_t Tests_Len = sizeof(Tests) / sizeof(Tests[0]);
@@ -92,7 +128,7 @@ int main()
 }
 
 void printTitle(uint8_t idx, const char* name) {
-    char tmpNum[4];
+    char tmpNum[6];
     char temp[65] = {0};
     uint8_t len = strlen(name);
     uint8_t nlen = snprintf(tmpNum, sizeof(tmpNum) - 1, " %d ", idx);
@@ -195,9 +231,9 @@ Test_Result Test_Param(void) {
 #if REFLEX_FORMAT_MODE_PRIMARY
 
 typedef struct {
-    uint32_t    X;
-    float       Y;
-    uint8_t     Z;
+    uint32_t    V0;
+    float       V1;
+    uint8_t     V2;
 } PrimaryTemp1;
 static const uint8_t PrimaryTemp1_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt32,
@@ -208,9 +244,9 @@ static const uint8_t PrimaryTemp1_FMT[] CONST_VAR_ATTR = {
 static const Reflex_Schema PrimaryTemp1_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Primary, PrimaryTemp1_FMT);
 
 typedef struct {
-    uint16_t    X;
-    float       Y;
-    uint8_t     Z;
+    uint16_t    V0;
+    float       V1;
+    uint8_t     V2;
 } PrimaryTemp2;
 static const uint8_t PrimaryTemp2_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt16,
@@ -221,10 +257,10 @@ static const uint8_t PrimaryTemp2_FMT[] CONST_VAR_ATTR = {
 static const Reflex_Schema PrimaryTemp2_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Primary, PrimaryTemp2_FMT);
 
 typedef struct {
-    uint16_t    A;
-    float       B;
-    uint8_t     C;
-    uint8_t     D;
+    uint16_t    V0;
+    float       V1;
+    uint8_t     V2;
+    uint8_t     V3;
 } PrimaryTemp3;
 static const uint8_t PrimaryTemp3_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt16,
@@ -277,24 +313,24 @@ Test_Result Test_Primary(void) {
     Reflex_setCallback(&reflex, Reflex_checkAddress);
     Reflex_setArgs(&reflex, addressMap);
 
-    addressMap[0] = &temp1.X;
-    addressMap[1] = &temp1.Y;
-    addressMap[2] = &temp1.Z;
+    addressMap[0] = &temp1.V0;
+    addressMap[1] = &temp1.V1;
+    addressMap[2] = &temp1.V2;
     reflex.Schema = &PrimaryTemp1_SCHEMA;
     assert(Num, Reflex_scan(&reflex, &temp1), REFLEX_OK);
 
 
-    addressMap[0] = &temp2.X;
-    addressMap[1] = &temp2.Y;
-    addressMap[2] = &temp2.Z;
+    addressMap[0] = &temp2.V0;
+    addressMap[1] = &temp2.V1;
+    addressMap[2] = &temp2.V2;
     reflex.Schema = &PrimaryTemp2_SCHEMA;
     assert(Num, Reflex_scan(&reflex, &temp2), REFLEX_OK);
 
 
-    addressMap[0] = &temp3.A;
-    addressMap[1] = &temp3.B;
-    addressMap[2] = &temp3.C;
-    addressMap[3] = &temp3.D;
+    addressMap[0] = &temp3.V0;
+    addressMap[1] = &temp3.V1;
+    addressMap[2] = &temp3.V2;
+    addressMap[3] = &temp3.V3;
     reflex.Schema = &PrimaryTemp3_SCHEMA;
     assert(Num, Reflex_scan(&reflex, &temp3), REFLEX_OK);
 
@@ -339,7 +375,7 @@ static const Reflex_TypeParams Model2_FMT_OFFSET[] CONST_VAR_ATTR = {
 static const Reflex_Schema Model2_SCHEMA_OFFSET CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model2_FMT_OFFSET);
 
 
-Test_Result Test_ParamsOffset(void) {
+Test_Result Test_Offset(void) {
     Reflex reflex = {0};
     Model1 temp1;
     Model2 temp2;
@@ -386,17 +422,17 @@ typedef struct {
 
 const CustomTypeParams1 Model1_CFMT[] = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Pointer_UInt8),
-    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 10, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 10),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt32),
-    REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4, 0),
+    REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4),
     REFLEX_TYPE_PARAMS(Reflex_Type_Array2D_Char, 4, 32),
 };
 static const Reflex_Schema Model1_CSCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model1_CFMT);
 
 const CustomTypeParams2 Model2_CFMT[] = {
     { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Int32), },
-    { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 32, 0), },
-    { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8, 0), },
+    { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 32), },
+    { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8), },
     { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float), },
 };
 static const Reflex_Schema Model2_CSCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model2_CFMT);
@@ -433,8 +469,8 @@ Test_Result Test_CustomTypeParams(void) {
 #if REFLEX_SUPPORT_TYPE_COMPLEX
 
 typedef struct {
-    Model1      M1;
-    Model2      M2;
+    Model1      V0;
+    Model2      V1;
 } CModel1;
 static const Reflex_TypeParams CModel1_FMT[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Complex, 0, 0, &Model1_SCHEMA),
@@ -445,10 +481,10 @@ static const Reflex_Schema CModel1_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Re
 typedef struct {
     float       V0;
     uint8_t     V1;
-    Model1      M1;
-    Model2      M2[2];
-    int16_t     V2;
-    uint8_t     V3;
+    Model1      V2;
+    Model2      V3[2];
+    int16_t     V4;
+    uint8_t     V5;
 } CModel2;
 static const Reflex_TypeParams CModel2_FMT[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float),
@@ -503,36 +539,36 @@ Test_Result Test_ComplexType(void) {
     Reflex_setCallback(&reflex, Reflex_checkAddress);
     Reflex_setArgs(&reflex, addressMap);
 
-    addressMap[0] = &temp1.M1.V0;
-    addressMap[1] = &temp1.M1.V1;
-    addressMap[2] = &temp1.M1.V2;
-    addressMap[3] = &temp1.M1.V3;
-    addressMap[4] = &temp1.M1.V4;
-    addressMap[5] = &temp1.M2.V0;
-    addressMap[6] = &temp1.M2.V1;
-    addressMap[7] = &temp1.M2.V2;
-    addressMap[8] = &temp1.M2.V3;
+    addressMap[0] = &temp1.V0.V0;
+    addressMap[1] = &temp1.V0.V1;
+    addressMap[2] = &temp1.V0.V2;
+    addressMap[3] = &temp1.V0.V3;
+    addressMap[4] = &temp1.V0.V4;
+    addressMap[5] = &temp1.V1.V0;
+    addressMap[6] = &temp1.V1.V1;
+    addressMap[7] = &temp1.V1.V2;
+    addressMap[8] = &temp1.V1.V3;
     reflex.Schema = &CModel1_SCHEMA;
     assert(Num, Reflex_scan(&reflex, &temp1), REFLEX_OK);
 
 
     addressMap[0]  = &temp2.V0;
     addressMap[1]  = &temp2.V1;
-    addressMap[2]  = &temp2.M1.V0;
-    addressMap[3]  = &temp2.M1.V1;
-    addressMap[4]  = &temp2.M1.V2;
-    addressMap[5]  = &temp2.M1.V3;
-    addressMap[6]  = &temp2.M1.V4;
-    addressMap[7]  = &temp2.M2[0].V0;
-    addressMap[8]  = &temp2.M2[0].V1;
-    addressMap[9]  = &temp2.M2[0].V2;
-    addressMap[10] = &temp2.M2[0].V3;
-    addressMap[11] = &temp2.M2[1].V0;
-    addressMap[12] = &temp2.M2[1].V1;
-    addressMap[13] = &temp2.M2[1].V2;
-    addressMap[14] = &temp2.M2[1].V3;
-    addressMap[15] = &temp2.V2;
-    addressMap[16] = &temp2.V3;
+    addressMap[2]  = &temp2.V2.V0;
+    addressMap[3]  = &temp2.V2.V1;
+    addressMap[4]  = &temp2.V2.V2;
+    addressMap[5]  = &temp2.V2.V3;
+    addressMap[6]  = &temp2.V2.V4;
+    addressMap[7]  = &temp2.V3[0].V0;
+    addressMap[8]  = &temp2.V3[0].V1;
+    addressMap[9]  = &temp2.V3[0].V2;
+    addressMap[10] = &temp2.V3[0].V3;
+    addressMap[11] = &temp2.V3[1].V0;
+    addressMap[12] = &temp2.V3[1].V1;
+    addressMap[13] = &temp2.V3[1].V2;
+    addressMap[14] = &temp2.V3[1].V3;
+    addressMap[15] = &temp2.V4;
+    addressMap[16] = &temp2.V5;
     reflex.Schema = &CModel2_SCHEMA;
     assert(Num, Reflex_scan(&reflex, &temp2), REFLEX_OK);
 
@@ -638,27 +674,219 @@ Test_Result Test_ComplexType(void) {
     addressMap[97] = &temp3.V11[1].V11;
     addressMap[98] = &temp3.V12.V0;
     addressMap[99] = &temp3.V12.V1;
-    addressMap[100] = &temp3.V12.M1.V0;
-    addressMap[101] = &temp3.V12.M1.V1;
-    addressMap[102] = &temp3.V12.M1.V2;
-    addressMap[103] = &temp3.V12.M1.V3;
-    addressMap[104] = &temp3.V12.M1.V4;
-    addressMap[105] = &temp3.V12.M2[0].V0;
-    addressMap[106] = &temp3.V12.M2[0].V1;
-    addressMap[107] = &temp3.V12.M2[0].V2;
-    addressMap[108] = &temp3.V12.M2[0].V3;
-    addressMap[109] = &temp3.V12.M2[1].V0;
-    addressMap[110] = &temp3.V12.M2[1].V1;
-    addressMap[111] = &temp3.V12.M2[1].V2;
-    addressMap[112] = &temp3.V12.M2[1].V3;
-    addressMap[113] = &temp3.V12.V2;
-    addressMap[114] = &temp3.V12.V3;
+    addressMap[100] = &temp3.V12.V2.V0;
+    addressMap[101] = &temp3.V12.V2.V1;
+    addressMap[102] = &temp3.V12.V2.V2;
+    addressMap[103] = &temp3.V12.V2.V3;
+    addressMap[104] = &temp3.V12.V2.V4;
+    addressMap[105] = &temp3.V12.V3[0].V0;
+    addressMap[106] = &temp3.V12.V3[0].V1;
+    addressMap[107] = &temp3.V12.V3[0].V2;
+    addressMap[108] = &temp3.V12.V3[0].V3;
+    addressMap[109] = &temp3.V12.V3[1].V0;
+    addressMap[110] = &temp3.V12.V3[1].V1;
+    addressMap[111] = &temp3.V12.V3[1].V2;
+    addressMap[112] = &temp3.V12.V3[1].V3;
+    addressMap[113] = &temp3.V12.V4;
+    addressMap[114] = &temp3.V12.V5;
     reflex.Schema = &CModel3_SCHEMA;
     assert(Num, Reflex_scan(&reflex, &temp3), REFLEX_OK);
 
 
     return 0;
 }
+#endif
+// -------------------------- Get Field -------------------------
+#if REFLEX_SUPPORT_SCAN_FIELD
+#define Assert_getFieldByIndexRaw(FN, FMT, OBJ, IDX)    assert(Num, FN(&reflex, &OBJ, &FMT[IDX], &field), Reflex_GetResult_Ok); \
+                                                        assert(Ptr, Reflex_Field_getVariable(&field), &OBJ.V ##IDX); \
+                                                        assert(Ptr, field.CustomFmt, &FMT[IDX]);
+
+
+#define Assert_Param_getFieldByIndex(OBJ, IDX)          Assert_getFieldByIndexRaw(Reflex_Param_getField, reflex.Schema->Fmt, OBJ, IDX)
+#define Assert_Primary_getFieldByIndex(OBJ, IDX)        Assert_getFieldByIndexRaw(Reflex_Primary_getField, reflex.Schema->PrimaryFmt, OBJ, IDX)
+#define Assert_Offset_getFieldByIndex(OBJ, IDX)         Assert_getFieldByIndexRaw(Reflex_Offset_getField, reflex.Schema->Fmt, OBJ, IDX)
+#define Assert_Custom_getFieldByIndex(FMT, OBJ, IDX)    Assert_getFieldByIndexRaw(Reflex_getField, FMT, OBJ, IDX)
+#define Assert_getFieldByIndex(OBJ, IDX)                Assert_getFieldByIndexRaw(Reflex_getField, reflex.Schema->Fmt, OBJ, IDX)
+
+#if REFLEX_FORMAT_MODE_PARAM
+Test_Result Test_Param_GetField(void) {
+    Reflex reflex = {0};
+    Reflex_Field field = {0};
+    Model1 temp1 = {0};
+    Model2 temp2 = {0};
+
+    reflex.Schema = &Model1_SCHEMA;
+    Assert_Param_getFieldByIndex(temp1, 0);
+    Assert_Param_getFieldByIndex(temp1, 1);
+    Assert_Param_getFieldByIndex(temp1, 2);
+    Assert_Param_getFieldByIndex(temp1, 3);
+    Assert_Param_getFieldByIndex(temp1, 4);
+
+    reflex.Schema = &Model2_SCHEMA;
+    Assert_Param_getFieldByIndex(temp2, 0);
+    Assert_Param_getFieldByIndex(temp2, 1);
+    Assert_Param_getFieldByIndex(temp2, 2);
+    Assert_Param_getFieldByIndex(temp2, 3);
+
+    return 0;
+}
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+Test_Result Test_Primary_GetField(void) {
+    Reflex reflex = {0};
+    Reflex_Field field = {0};
+    PrimaryTemp1 temp1 = {0};
+    PrimaryTemp2 temp2 = {0};
+    PrimaryTemp3 temp3 = {0};
+    PrimaryTemp4 temp4 = {0};
+
+    reflex.Schema = &PrimaryTemp1_SCHEMA;
+    Assert_Primary_getFieldByIndex(temp1, 0);
+    Assert_Primary_getFieldByIndex(temp1, 1);
+    Assert_Primary_getFieldByIndex(temp1, 2);
+
+    reflex.Schema = &PrimaryTemp2_SCHEMA;
+    Assert_Primary_getFieldByIndex(temp2, 0);
+    Assert_Primary_getFieldByIndex(temp2, 1);
+    Assert_Primary_getFieldByIndex(temp2, 2);
+
+    reflex.Schema = &PrimaryTemp3_SCHEMA;
+    Assert_Primary_getFieldByIndex(temp3, 0);
+    Assert_Primary_getFieldByIndex(temp3, 1);
+    Assert_Primary_getFieldByIndex(temp3, 2);
+    Assert_Primary_getFieldByIndex(temp3, 3);
+
+    reflex.Schema = &PrimaryTemp4_SCHEMA;
+    Assert_Primary_getFieldByIndex(temp4, 0);
+    Assert_Primary_getFieldByIndex(temp4, 1);
+    Assert_Primary_getFieldByIndex(temp4, 2);
+    Assert_Primary_getFieldByIndex(temp4, 3);
+    Assert_Primary_getFieldByIndex(temp4, 4);
+    Assert_Primary_getFieldByIndex(temp4, 5);
+    Assert_Primary_getFieldByIndex(temp4, 6);
+    Assert_Primary_getFieldByIndex(temp4, 7);
+    Assert_Primary_getFieldByIndex(temp4, 8);
+    Assert_Primary_getFieldByIndex(temp4, 9);
+    Assert_Primary_getFieldByIndex(temp4, 10);
+    Assert_Primary_getFieldByIndex(temp4, 11);
+
+    return 0;
+}
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+Test_Result Test_Offset_GetField(void) {
+    Reflex reflex = {0};
+    Reflex_Field field = {0};
+    Model1 temp1 = {0};
+    Model2 temp2 = {0};
+
+    reflex.Schema = &Model1_SCHEMA_OFFSET;
+    Assert_Offset_getFieldByIndex(temp1, 0);
+    Assert_Offset_getFieldByIndex(temp1, 1);
+    Assert_Offset_getFieldByIndex(temp1, 2);
+    Assert_Offset_getFieldByIndex(temp1, 3);
+    Assert_Offset_getFieldByIndex(temp1, 4);
+
+    reflex.Schema = &Model2_SCHEMA_OFFSET;
+    Assert_Offset_getFieldByIndex(temp2, 0);
+    Assert_Offset_getFieldByIndex(temp2, 1);
+    Assert_Offset_getFieldByIndex(temp2, 2);
+    Assert_Offset_getFieldByIndex(temp2, 3);
+
+    return 0;
+}
+#endif
+#if REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS
+Test_Result Test_CustomTypeParams_GetField(void) {
+    Reflex reflex = {0};
+    Reflex_Field field = {0};
+    Model1 temp1 = {0};
+    Model2 temp2 = {0};
+
+    reflex.Schema = &Model1_CSCHEMA;
+    Assert_Custom_getFieldByIndex(Model1_CFMT, temp1, 0);
+    Assert_Custom_getFieldByIndex(Model1_CFMT, temp1, 1);
+    Assert_Custom_getFieldByIndex(Model1_CFMT, temp1, 2);
+    Assert_Custom_getFieldByIndex(Model1_CFMT, temp1, 3);
+    Assert_Custom_getFieldByIndex(Model1_CFMT, temp1, 4);
+
+    reflex.Schema = &Model2_CSCHEMA;
+    Assert_Custom_getFieldByIndex(Model2_CFMT, temp2, 0);
+    Assert_Custom_getFieldByIndex(Model2_CFMT, temp2, 1);
+    Assert_Custom_getFieldByIndex(Model2_CFMT, temp2, 2);
+    Assert_Custom_getFieldByIndex(Model2_CFMT, temp2, 3);
+
+    return 0;
+}
+#endif
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+Test_Result Test_ComplexType_GetField(void) {
+    Reflex reflex = {0};
+    Reflex_Field field = {0};
+    CModel1 temp1 = {0};
+    CModel2 temp2 = {0};
+    CModel3 temp3 = {0};
+
+    // Find in temp1
+    reflex.Schema = &CModel1_SCHEMA;
+    Assert_getFieldByIndex(temp1, 0);
+    Assert_getFieldByIndex(temp1, 1);
+    // Find in temp1.V0
+    reflex.Schema = CModel1_SCHEMA.Fmt[0].Schema;
+    Assert_getFieldByIndex(temp1.V0, 0);
+    Assert_getFieldByIndex(temp1.V0, 1);
+    Assert_getFieldByIndex(temp1.V0, 2);
+    Assert_getFieldByIndex(temp1.V0, 3);
+    Assert_getFieldByIndex(temp1.V0, 4);
+    // Find temp1.V1
+    reflex.Schema = CModel1_SCHEMA.Fmt[1].Schema;
+    Assert_getFieldByIndex(temp1.V1, 0);
+    Assert_getFieldByIndex(temp1.V1, 1);
+    Assert_getFieldByIndex(temp1.V1, 2);
+    Assert_getFieldByIndex(temp1.V1, 3);
+
+    // Find in temp2
+    reflex.Schema = &CModel2_SCHEMA;
+    Assert_getFieldByIndex(temp2, 0);
+    Assert_getFieldByIndex(temp2, 1);
+    Assert_getFieldByIndex(temp2, 2);
+    Assert_getFieldByIndex(temp2, 3);
+    Assert_getFieldByIndex(temp2, 4);
+    Assert_getFieldByIndex(temp2, 5);
+    // Find in temp2.V2
+    reflex.Schema = CModel2_SCHEMA.Fmt[2].Schema;
+    Assert_getFieldByIndex(temp2.V2, 0);
+    Assert_getFieldByIndex(temp2.V2, 1);
+    Assert_getFieldByIndex(temp2.V2, 2);
+    Assert_getFieldByIndex(temp2.V2, 3);
+    Assert_getFieldByIndex(temp2.V2, 4);
+    
+    // Find in temp3
+    reflex.Schema = &CModel3_SCHEMA;
+    Assert_getFieldByIndex(temp3, 0);
+    Assert_getFieldByIndex(temp3, 1);
+    Assert_getFieldByIndex(temp3, 2);
+    Assert_getFieldByIndex(temp3, 3);
+    Assert_getFieldByIndex(temp3, 4);
+    Assert_getFieldByIndex(temp3, 5);
+    Assert_getFieldByIndex(temp3, 6);
+    Assert_getFieldByIndex(temp3, 7);
+    Assert_getFieldByIndex(temp3, 8);
+    Assert_getFieldByIndex(temp3, 9);
+    // Find in temp3.V2
+    reflex.Schema = CModel3_SCHEMA.Fmt[2].Schema;
+    Assert_getFieldByIndex(temp3.V2, 2);
+    Assert_getFieldByIndex(temp3.V2, 4);
+    // Find in temp3.V12.V2
+    reflex.Schema = CModel3_SCHEMA.Fmt[12].Schema->Fmt[2].Schema;
+    Assert_getFieldByIndex(temp3.V12.V2, 1);
+    Assert_getFieldByIndex(temp3.V12.V2, 3);
+    Assert_getFieldByIndex(temp3.V12.V2, 4);
+
+    return 0;
+}
+#endif
 #endif
 // -------------------------- Test Size -------------------------
 Test_Result Test_Size(void) {
@@ -690,6 +918,15 @@ void Result_print(Test_Result result) {
 Test_Result Assert_Num(int32_t val1, int32_t val2, uint16_t line) {
     if (val1 != val2) {
         PRINTF("Assert Num: expected %d, found %d, Line: %d\r\n", val2, val1, line);
+        return (Test_Result) line << 16;
+    }
+    else {
+        return 0;
+    }
+}
+Test_Result Assert_Ptr(void* val1, void* val2, uint16_t line) {
+    if (val1 != val2) {
+        PRINTF("Assert Ptr: expected %X, found %X, Line: %d\r\n", val2, val1, line);
         return (Test_Result) line << 16;
     }
     else {
