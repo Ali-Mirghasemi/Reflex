@@ -50,6 +50,7 @@ extern "C" {
 #define REFLEX_SUPPORT_SCAN_FIELD           1
 #define REFLEX_SUPPORT_BREAK_LAYER          1
 #define REFLEX_SUPPORT_VAR_INDEX            1
+#define REFLEX_SUPPORT_MAIN_OBJ             1
 
 #define REFLEX_SUPPORT_TYPE_POINTER         1
 #define REFLEX_SUPPORT_TYPE_ARRAY           1
@@ -400,17 +401,19 @@ typedef enum {
 } Reflex_FormatMode;
 
 typedef struct {
-    void*                               Object;
     union {
         const Reflex_TypeParams*        Fmt;
         const uint8_t*                  PrimaryFmt;
         const void*                     CustomFmt;
     };
+    void*                               Object;
+#if REFLEX_SUPPORT_MAIN_OBJ
+    void*                               MainObject;
+#endif
 #if REFLEX_SUPPORT_VAR_INDEX
-    Reflex_LenType                      Index;
+    Reflex_LenType                      VarIndex;
 #if REFLEX_SUPPORT_TYPE_COMPLEX
-    Reflex_LenType                      IndexOffset;
-    Reflex_LenType                      LayerIndex;
+    Reflex_LenType                      VarOffset;
 #endif
 #endif
 } Reflex_Field;
@@ -428,27 +431,29 @@ struct __Reflex_Schema {
 };
 
 struct __Reflex {
-#if REFLEX_SUPPORT_ARGS
-    void*                                   Args;
-#endif
-#if REFLEX_SUPPORT_BUFFER
-    void*                                   Buffer;
-#endif
-    void*                                   Obj;
     union {
         Reflex_OnFieldFn                    onField;
         const Reflex_ScanDriver*            Driver;
         const Reflex_ScanFunctions*         CompactFns;
     };
     const Reflex_Schema*                    Schema;
+#if REFLEX_SUPPORT_ARGS
+    void*                                   Args;
+#endif
+#if REFLEX_SUPPORT_BUFFER
+    void*                                   Buffer;
+#endif
+#if REFLEX_SUPPORT_MAIN_OBJ
+    void*                                   MainObject;
+#endif
 #if REFLEX_SUPPORT_VAR_INDEX
 #if REFLEX_SUPPORT_TYPE_COMPLEX
     void*                                   PObj;
     Reflex_LenType                          AlignSize;
-    Reflex_LenType                          VariableIndexOffset;
+    Reflex_LenType                          VarOffset;
     Reflex_LenType                          LayerIndex;
 #endif
-    Reflex_LenType                          VariableIndex;
+    Reflex_LenType                          VarIndex;
 #endif
     uint8_t                                 FunctionMode        : 2;        /**< Reflex Driver FunctionMode, for PrimaryFmt it's optional */
     uint8_t                                 BreakLayer          : 1;
@@ -460,10 +465,13 @@ struct __Reflex {
 void Reflex_init(Reflex* reflex, const Reflex_Schema* schema);
 Reflex_Result Reflex_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
 Reflex_Result Reflex_scan(Reflex* reflex, void* obj);
+Reflex_LenType Reflex_getVariablesLength(Reflex* reflex);
 
-Reflex_GetResult Reflex_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field);
-Reflex_Result Reflex_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* field, Reflex_OnFieldFn onField);
-Reflex_Result Reflex_scanField(Reflex* reflex, void* obj, const Reflex_TypeParams* field);
+#if REFLEX_SUPPORT_SCAN_FIELD
+    Reflex_GetResult Reflex_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field);
+    Reflex_Result Reflex_scanFieldRaw(Reflex* reflex, Reflex_Field* field, Reflex_OnFieldFn onField);
+    Reflex_Result Reflex_scanField(Reflex* reflex, void* obj, const void* fieldFmt);
+#endif
 
 Reflex_LenType Reflex_sizeType(const Reflex_TypeParams* fmt);
 
@@ -477,25 +485,28 @@ void Reflex_setCallback(Reflex* reflex, Reflex_OnFieldFn fn);
 void Reflex_setDriver(Reflex* reflex, const Reflex_ScanDriver* driver);
 void Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact);
 
-void* Reflex_getMainVariable(Reflex* reflex);
-Reflex_LenType Reflex_getVariablesLength(Reflex* reflex);
+#if REFLEX_SUPPORT_MAIN_OBJ
+    void* Reflex_getMainVariable(Reflex* reflex);
+#endif
 
 #if REFLEX_SUPPORT_VAR_INDEX  
-    Reflex_LenType Reflex_getVariableIndex(Reflex* reflex);
-    Reflex_LenType Reflex_getVariableIndexReal(Reflex* reflex);
+    Reflex_LenType Reflex_getVarIndex(Reflex* reflex);
+    Reflex_LenType Reflex_getVarIndexReal(Reflex* reflex);
 #if REFLEX_SUPPORT_TYPE_COMPLEX
-    Reflex_LenType Reflex_getVariableIndexOffset(Reflex* reflex);
+    Reflex_LenType Reflex_getVarOffset(Reflex* reflex);
 #endif
 #endif //REFLEX_SUPPORT_VAR_INDEX
 
 #if REFLEX_SUPPORT_SCAN_FIELD
-void*          Reflex_Field_getVariable(Reflex_Field* reflex);
+    void*          Reflex_Field_getVariable(Reflex_Field* reflex);
+#if REFLEX_SUPPORT_MAIN_OBJ
+    void*          Reflex_Field_getMainVariable(Reflex_Field* reflex);
+#endif
 #if REFLEX_SUPPORT_VAR_INDEX
-    Reflex_LenType Reflex_Field_getIndex(Reflex_Field* reflex);
-    Reflex_LenType Reflex_Field_getIndexReal(Reflex_Field* reflex);
+    Reflex_LenType Reflex_Field_getVarIndex(Reflex_Field* reflex);
+    Reflex_LenType Reflex_Field_getVarIndexReal(Reflex_Field* reflex);
 #if REFLEX_SUPPORT_TYPE_COMPLEX
-    Reflex_LenType Reflex_Field_getLayerIndex(Reflex_Field* reflex);
-    Reflex_LenType Reflex_Field_getIndexOffset(Reflex_Field* reflex);
+    Reflex_LenType Reflex_Field_getVarOffset(Reflex_Field* reflex);
 #endif // REFLEX_SUPPORT_TYPE_COMPLEX
 #endif // REFLEX_SUPPORT_VAR_INDEX
 #endif // REFLEX_SUPPORT_SCAN_FIELD
