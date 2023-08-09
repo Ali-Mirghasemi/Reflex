@@ -1,15 +1,17 @@
 /**
  * @file Reflex.h
  * @author Ali Mirghasemi (ali.mirghasemi1376@gmail.com)
- * @brief This library help user to serialize and deserialize objects in c languages
+ * @brief Reflex is a powerful C library that provides reflection capabilities for C data structures. 
+ *        It allows you to introspect C structures at runtime, 
+ *        enabling you to access and manipulate the structure members dynamically. 
+ *        This library is particularly useful for tasks like serialization, 
+ *        deserialization, data validation, and generic data handling.
+ * 
  * @version 0.1
  * @date 2023-04-08
  *
  * @copyright Copyright (c) 2023
- *
  */
-
-
 #ifndef _REFLEX_H_
 #define _REFLEX_H_
 
@@ -17,53 +19,131 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#include <stdint.h>
 
 #define REFLEX_VER_MAJOR       0
 #define REFLEX_VER_MINOR       1
 #define REFLEX_VER_FIX         0
 
-#include <stdint.h>
-
 /********************************************************************************************/
 /*                                     Configuration                                        */
 /********************************************************************************************/
-
-/**
- * @brief select your architecture bit width
- */
+// Supported Architectures
 #define REFLEX_ARCH_8BIT                    8
 #define REFLEX_ARCH_16BIT                   16
 #define REFLEX_ARCH_32BIT                   32
 #define REFLEX_ARCH_64BIT                   64
+/**
+ * @brief Select your architecture bit width
+ */
 #define REFLEX_ARCH						    REFLEX_ARCH_64BIT
-
+/**
+ * @brief Support FormatMode_Param, it's affect on scan, getField, etc
+ */
 #define REFLEX_FORMAT_MODE_PARAM            1
+/**
+ * @brief Support FormatMode_Primary, it's affect on scan, getField, etc
+ */
 #define REFLEX_FORMAT_MODE_PRIMARY          1
+/**
+ * @brief Support FormatMode_Offset, it's affect on scan, getField, etc
+ */
 #define REFLEX_FORMAT_MODE_OFFSET           1
-
-#define REFLEX_SUPPORT_64BIT_INT            1
-#define REFLEX_SUPPORT_DOUBLE               1
+/**
+ * @brief Support custom Reflex_TypeParams
+ */
 #define REFLEX_SUPPORT_CUSTOM_TYPE_PARAMS   1
+/**
+ * @brief Support args in reflex object
+ */
 #define REFLEX_SUPPORT_ARGS                 1
+/**
+ * @brief Support buffer in reflex object
+ */
 #define REFLEX_SUPPORT_BUFFER               1
+/**
+ * @brief Support Size functions API
+ * If you want calculate size of schema in runtime, you need it
+ */
 #define REFLEX_SUPPORT_SIZE_FN              1
+/**
+ * @brief Support GetField functions API
+ * If you want Serialize/Deserialize object in different way that they define in struct, you need it
+ */
 #define REFLEX_SUPPORT_SCAN_FIELD           1
+/**
+ * @brief Support Break functions API
+ * Note: It's only available for complex objects
+ * If you want to break process of Complex Array or 2D Array, you need it
+ */
 #define REFLEX_SUPPORT_BREAK_LAYER          1
+/**
+ * @brief Support VarIndex functions API
+ * Note: Index of field give you a flat view over a complex object
+ * Note 2: Complex objects don't count for index
+ * If you want to know get field index, you need it
+ */
 #define REFLEX_SUPPORT_VAR_INDEX            1
+/**
+ * @brief Support MainObject functions API
+ * If you want access address of parent object in callbacks, you need it
+ */
 #define REFLEX_SUPPORT_MAIN_OBJ             1
-
+/**
+ * @brief Support Scan Callback function mode
+ */
+#define REFLEX_SUPPORT_CALLBACK             1
+/**
+ * @brief Support Scan Driver function mode
+ */
+#define REFLEX_SUPPORT_DRIVER               1
+/**
+ * @brief Support Scan Compact function mode
+ */
+#define REFLEX_SUPPORT_COMPACT              1
+/**
+ * @brief Support 64-bit variables such as uint64_t and int64_t
+ */
+#define REFLEX_SUPPORT_TYPE_64BIT           1
+/**
+ * @brief Support double variables
+ */
+#define REFLEX_SUPPORT_TYPE_DOUBLE          1
+/**
+ * @brief Support Pointer category variables, it's affect on scan, getField, etc
+ */
 #define REFLEX_SUPPORT_TYPE_POINTER         1
+/**
+ * @brief Support Array category variables, it's affect on scan, getField, etc
+ */
 #define REFLEX_SUPPORT_TYPE_ARRAY           1
+/**
+ * @brief Support PointerArray category variables, it's affect on scan, getField, etc
+ */
 #define REFLEX_SUPPORT_TYPE_POINTER_ARRAY   1
+/**
+ * @brief Support Array2D category variables, it's affect on scan, getField, etc
+ */
 #define REFLEX_SUPPORT_TYPE_ARRAY_2D        1
+/**
+ * @brief Support complex variables such as struct or struct in struct, 
+ * it's affect on scan, getField, etc
+ */
 #define REFLEX_SUPPORT_TYPE_COMPLEX         1
-
+/**
+ * @brief Define type of len variables
+ * Note: it must be signed
+ */
 typedef int16_t Reflex_LenType;
-
+/**
+ * @brief Define type of offset type in Offset Schema
+ * Note: it must be unsigned
+ */
 typedef uint8_t Reflex_OffsetType;
-
+/**
+ * @brief Define type of reflex result
+ */
 typedef uint32_t Reflex_Result;
-
 /********************************************************************************************/
 
 #define __REFLEX_VER_STR(major, minor, fix)     #major "." #minor "." #fix
@@ -77,22 +157,30 @@ typedef uint32_t Reflex_Result;
  */
 #define REFLEX_VER                              ((REFLEX_VER_MAJOR * 10000UL) + (REFLEX_VER_MINOR * 100UL) + (REFLEX_VER_FIX))
 
-/* Pre-Defined data types */
+/* ------------------------ Pre-Defined data types ----------------------- */
 struct __Reflex;
 typedef struct __Reflex Reflex;
 struct __Reflex_TypeParams;
 typedef struct __Reflex_TypeParams Reflex_TypeParams;
 struct __Reflex_Schema;
 typedef struct __Reflex_Schema Reflex_Schema;
-
+/**
+ * @brief Common return of scan functions
+ */
 #define REFLEX_OK                               0
+/**
+ * @brief Reserved value for unknown errors of scan functions
+ */
 #define REFLEX_ERROR                            ((Reflex_Result)(~0))
+/**
+ * @brief Architecture bytes width
+ */
 #define REFLEX_ARCH_BYTES                       (REFLEX_ARCH / 8)
 
-/* Supportive Macros */
+/* ------------------- Supportive Macros (DO NOT CHANGE ANYTHINGS) ----------------- */
 #if REFLEX_FORMAT_MODE_OFFSET
     #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET()             Reflex_OffsetType Offset
-    #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET_INIT(T, F)    .Offset = (Reflex_OffsetType) &((T*) 0)->F,
+    #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET_INIT(T, F)    .Offset = (Reflex_PtrType) &((T*) 0)->F,
 #else
     #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET()
     #define __REFLEX_TYPE_PARAMS_FIELD_OFFSET_INIT(T, F)
@@ -130,6 +218,15 @@ typedef struct __Reflex_Schema Reflex_Schema;
     #define __REFLEX_TYPE_PARAMS_FIELD_MLEN_INIT(MLEN)
 #endif
 
+#define __REFLEX_TYPE(CAT, TY)      Reflex_Type_ ##CAT ##_ ##TY = Reflex_Category_ ##CAT << 5 | Reflex_PrimaryType_ ##TY
+/* -------------------------------- Types ------------------------------------ */
+#if   REFLEX_ARCH == REFLEX_ARCH_64BIT
+    typedef uint64_t Reflex_PtrType;
+#elif REFLEX_ARCH == REFLEX_ARCH_32BIT
+    typedef uint32_t Reflex_PtrType;
+#else
+    typedef uint16_t Reflex_PtrType;
+#endif
 /**
  * @brief Result of getField Functions
  */
@@ -139,10 +236,10 @@ typedef enum {
 } Reflex_GetResult;
 
 /**
- * @brief supported param categories
+ * @brief Supported param categories
  */
 typedef enum {
-    Reflex_Category_Primary,       /**< Primary types, ex: u8,u16,char,float,... */
+    Reflex_Category_Primary,       /**< Primary types, ex: u8,u16,char,float,etc */
 #if REFLEX_SUPPORT_TYPE_POINTER
     Reflex_Category_Pointer,       /**< pointer mode for primary types */
 #endif
@@ -158,7 +255,7 @@ typedef enum {
     Reflex_Category_Length,
 } Reflex_Category;
 /**
- * @brief supported primary types
+ * @brief Supported primary types
  */
 typedef enum {
     Reflex_PrimaryType_Unknown,
@@ -169,12 +266,12 @@ typedef enum {
     Reflex_PrimaryType_Int16,
     Reflex_PrimaryType_UInt32,
     Reflex_PrimaryType_Int32,
-#if REFLEX_SUPPORT_64BIT_INT
+#if REFLEX_SUPPORT_TYPE_64BIT
     Reflex_PrimaryType_UInt64,
     Reflex_PrimaryType_Int64,
 #endif
     Reflex_PrimaryType_Float,
-#if REFLEX_SUPPORT_DOUBLE
+#if REFLEX_SUPPORT_TYPE_DOUBLE
     Reflex_PrimaryType_Double,
 #endif
 #if REFLEX_SUPPORT_TYPE_COMPLEX
@@ -182,7 +279,6 @@ typedef enum {
 #endif
     Reflex_PrimaryType_Length,
 } Reflex_PrimaryType;
-
 /**
  * @brief Reflex type that user can use
  * format: Reflex_Type_<Category>_<PrimaryType>
@@ -190,7 +286,6 @@ typedef enum {
  *
  */
 typedef enum {
-#define __REFLEX_TYPE(CAT, TY)         Reflex_Type_ ##CAT ##_ ##TY = Reflex_Category_ ##CAT << 5 | Reflex_PrimaryType_ ##TY
     // ------------- Primary Types --------------
     __REFLEX_TYPE(Primary, Unknown),
     __REFLEX_TYPE(Primary, Char),
@@ -200,12 +295,12 @@ typedef enum {
     __REFLEX_TYPE(Primary, Int16),
     __REFLEX_TYPE(Primary, UInt32),
     __REFLEX_TYPE(Primary, Int32),
-#if REFLEX_SUPPORT_64BIT_INT
+#if REFLEX_SUPPORT_TYPE_64BIT
     __REFLEX_TYPE(Primary, UInt64),
     __REFLEX_TYPE(Primary, Int64),
 #endif
     __REFLEX_TYPE(Primary, Float),
-#if REFLEX_SUPPORT_DOUBLE
+#if REFLEX_SUPPORT_TYPE_DOUBLE
     __REFLEX_TYPE(Primary, Double),
 #endif
 #if REFLEX_SUPPORT_TYPE_COMPLEX
@@ -221,12 +316,12 @@ typedef enum {
     __REFLEX_TYPE(Pointer, Int16),
     __REFLEX_TYPE(Pointer, UInt32),
     __REFLEX_TYPE(Pointer, Int32),
-#if REFLEX_SUPPORT_64BIT_INT
+#if REFLEX_SUPPORT_TYPE_64BIT
     __REFLEX_TYPE(Pointer, UInt64),
     __REFLEX_TYPE(Pointer, Int64),
 #endif
     __REFLEX_TYPE(Pointer, Float),
-#if REFLEX_SUPPORT_DOUBLE
+#if REFLEX_SUPPORT_TYPE_DOUBLE
     __REFLEX_TYPE(Pointer, Double),
 #endif
 #if REFLEX_SUPPORT_TYPE_COMPLEX
@@ -243,12 +338,12 @@ typedef enum {
     __REFLEX_TYPE(Array, Int16),
     __REFLEX_TYPE(Array, UInt32),
     __REFLEX_TYPE(Array, Int32),
-#if REFLEX_SUPPORT_64BIT_INT
+#if REFLEX_SUPPORT_TYPE_64BIT
     __REFLEX_TYPE(Array, UInt64),
     __REFLEX_TYPE(Array, Int64),
 #endif
     __REFLEX_TYPE(Array, Float),
-#if REFLEX_SUPPORT_DOUBLE
+#if REFLEX_SUPPORT_TYPE_DOUBLE
     __REFLEX_TYPE(Array, Double),
 #endif
 #if REFLEX_SUPPORT_TYPE_COMPLEX
@@ -265,12 +360,12 @@ typedef enum {
     __REFLEX_TYPE(PointerArray, Int16),
     __REFLEX_TYPE(PointerArray, UInt32),
     __REFLEX_TYPE(PointerArray, Int32),
-#if REFLEX_SUPPORT_64BIT_INT
+#if REFLEX_SUPPORT_TYPE_64BIT
     __REFLEX_TYPE(PointerArray, UInt64),
     __REFLEX_TYPE(PointerArray, Int64),
 #endif
     __REFLEX_TYPE(PointerArray, Float),
-#if REFLEX_SUPPORT_DOUBLE
+#if REFLEX_SUPPORT_TYPE_DOUBLE
     __REFLEX_TYPE(PointerArray, Double),
 #endif
 #if REFLEX_SUPPORT_TYPE_COMPLEX
@@ -287,12 +382,12 @@ typedef enum {
     __REFLEX_TYPE(Array2D, Int16),
     __REFLEX_TYPE(Array2D, UInt32),
     __REFLEX_TYPE(Array2D, Int32),
-#if REFLEX_SUPPORT_64BIT_INT
+#if REFLEX_SUPPORT_TYPE_64BIT
     __REFLEX_TYPE(Array2D, UInt64),
     __REFLEX_TYPE(Array2D, Int64),
 #endif
     __REFLEX_TYPE(Array2D, Float),
-#if REFLEX_SUPPORT_DOUBLE
+#if REFLEX_SUPPORT_TYPE_DOUBLE
     __REFLEX_TYPE(Array2D, Double),
 #endif
 #if REFLEX_SUPPORT_TYPE_COMPLEX
@@ -300,11 +395,21 @@ typedef enum {
 #endif
 #endif // REFLEX_SUPPORT_TYPE_ARRAY_2D
 } Reflex_Type;
-
+/**
+ * @brief Reflex type unknown 
+ */
 #define Reflex_Type_Unknown          Reflex_Type_Primary_Unknown
-
+/**
+ * @brief Bit mask for primary part
+ */
 #define REFLEX_TYPE_PRIMARY_MASK     0x1F
+/**
+ * @brief Bit mask for category part
+ */
 #define REFLEX_TYPE_CATEGORY_MASK    0xE0
+/**
+ * @brief Helper type for Reflex_Type
+ */
 typedef union {
     uint8_t         Type;
     struct {
@@ -312,13 +417,21 @@ typedef union {
         uint8_t     Category    : 3;
     };
 } Reflex_Type_BitFields;
-
 /**
  * @brief This function callback used for scan all of object fields
- *
+ * Note: It's used for scan callback
+ * 
+ * @param reflex
+ * @param obj address of object, or field value
+ * @param fmt address of field format, it can be Reflex_TypeParams or any custom TypeParams
+ * 
+ * @return return REFLEX_OK if you want continue scan otherwise you can return error
  */
-typedef Reflex_Result (*Reflex_OnFieldFn)(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt);
-
+typedef Reflex_Result (*Reflex_OnFieldFn)(Reflex* reflex, void* obj, const void* fmt);
+/**
+ * @brief This object hold function pointers for scan
+ * It can be used for Serialize/Deserialize
+ */
 typedef union {
     Reflex_OnFieldFn      fn[Reflex_PrimaryType_Length];
     struct {
@@ -330,12 +443,12 @@ typedef union {
         Reflex_OnFieldFn  fnInt16;
         Reflex_OnFieldFn  fnUInt32;
         Reflex_OnFieldFn  fnInt32;
-    #if REFLEX_SUPPORT_64BIT_INT
+    #if REFLEX_SUPPORT_TYPE_64BIT
         Reflex_OnFieldFn  fnUInt64;
         Reflex_OnFieldFn  fnInt64;
     #endif
         Reflex_OnFieldFn  fnFloat;
-    #if REFLEX_SUPPORT_DOUBLE
+    #if REFLEX_SUPPORT_TYPE_DOUBLE
         Reflex_OnFieldFn  fnDouble;
     #endif
     #if REFLEX_SUPPORT_TYPE_COMPLEX
@@ -344,7 +457,9 @@ typedef union {
     #endif
     };
 } Reflex_ScanFunctions;
-
+/**
+ * @brief This object hold all categories scan functions
+ */
 typedef union {
     const Reflex_ScanFunctions*      Category[Reflex_Category_Length];
     struct {
@@ -363,7 +478,10 @@ typedef union {
     #endif
     };
 } Reflex_ScanDriver;
-
+/**
+ * @brief This macro allows you to create custom Reflex_TypeParams
+ * also it's support all configuration
+ */
 #define REFLEX_TYPE_PARAMS_STRUCT()     __REFLEX_TYPE_PARAM_FIELD_COMPLEX();   \
                                         __REFLEX_TYPE_PARAMS_FIELD_LEN();      /*< Used for Array Length, Array2D Row Length, Sizeof Struct, Sizeof Enum, Sizeof Union*/ \
                                         __REFLEX_TYPE_PARAMS_FIELD_MLEN();     /*< Used for Array2D Columns Length */ \
@@ -372,22 +490,39 @@ typedef union {
                                             Reflex_Type_BitFields   Fields;    \
                                         };                                     \
                                         __REFLEX_TYPE_PARAMS_FIELD_OFFSET()
-
+/**
+ * @brief Basic TypeParams that user can use for create schema
+ * Note: it's better to use REFLEX_TYPE_PARAMS macro for support all changes in configurations
+ */
 struct __Reflex_TypeParams {
     REFLEX_TYPE_PARAMS_STRUCT();
 };
-
+/**
+ * @brief Supported modes for size functions
+ */
 typedef enum {
   Reflex_SizeType_Normal,
   Reflex_SizeType_Packed,
+  Reflex_SizeType_Length,
 } Reflex_SizeType;
-
+/**
+ * @brief Supported function mode for scan functions
+ */
 typedef enum {
+#if REFLEX_SUPPORT_CALLBACK
     Reflex_FunctionMode_Callback,
+#endif
+#if REFLEX_SUPPORT_DRIVER
     Reflex_FunctionMode_Driver,
+#endif
+#if REFLEX_SUPPORT_COMPACT
     Reflex_FunctionMode_Compact,
+#endif
+    Reflex_FunctionMode_Length,
 } Reflex_FunctionMode;
-
+/**
+ * @brief Supported format mode for scan, getField, etc
+ */
 typedef enum {
 #if REFLEX_FORMAT_MODE_PARAM
     Reflex_FormatMode_Param,
@@ -399,7 +534,10 @@ typedef enum {
     Reflex_FormatMode_Offset,
 #endif
 } Reflex_FormatMode;
-
+/**
+ * @brief This object hold properties of field
+ * It used by getField, scanFieldRaw, scanField functions
+ */
 typedef struct {
     union {
         const Reflex_TypeParams*        Fmt;
@@ -417,7 +555,10 @@ typedef struct {
 #endif
 #endif
 } Reflex_Field;
-
+/**
+ * @brief This object describe schema of object
+ * Note: It's better to use REFLEX_SCHEMA macro to support all of configurations
+ */
 struct __Reflex_Schema {
     union {
         const uint8_t*                  PrimaryFmt;
@@ -429,12 +570,21 @@ struct __Reflex_Schema {
     uint8_t                             FormatMode          : 2;        /**< Reflex Driver FunctionMode */
     uint8_t                             Reserved            : 6;
 };
-
+/**
+ * @brief This is main reflex handler object
+ * It hold all parameters that need
+ */
 struct __Reflex {
     union {
+    #if REFLEX_SUPPORT_CALLBACK
         Reflex_OnFieldFn                    onField;
+    #endif
+    #if REFLEX_SUPPORT_DRIVER
         const Reflex_ScanDriver*            Driver;
+    #endif
+    #if REFLEX_SUPPORT_COMPACT
         const Reflex_ScanFunctions*         CompactFns;
+    #endif
     };
     const Reflex_Schema*                    Schema;
 #if REFLEX_SUPPORT_ARGS
@@ -461,42 +611,57 @@ struct __Reflex {
     uint8_t                                 Reserved            : 4;
 };
 
-// ---------------------- Main API ----------------------
-void Reflex_init(Reflex* reflex, const Reflex_Schema* schema);
-Reflex_Result Reflex_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
-Reflex_Result Reflex_scan(Reflex* reflex, void* obj);
+/* ----------------------------------- Main API ------------------------------------ */
+void           Reflex_init(Reflex* reflex, const Reflex_Schema* schema);
+Reflex_Result  Reflex_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
+Reflex_Result  Reflex_scan(Reflex* reflex, void* obj);
 Reflex_LenType Reflex_getVariablesLength(Reflex* reflex);
-
+Reflex_LenType Reflex_sizeType(const Reflex_TypeParams* fmt);
+#if REFLEX_SUPPORT_MAIN_OBJ
+    void*      Reflex_getMainVariable(Reflex* reflex);
+#endif
+#if REFLEX_SUPPORT_ARGS
+    void       Reflex_setArgs(Reflex* reflex, void* args);
+    void*      Reflex_getArgs(Reflex* reflex);
+#endif
+#if REFLEX_SUPPORT_BUFFER
+    void       Reflex_setBuffer(Reflex* reflex, void* buf);
+    void*      Reflex_getBuffer(Reflex* reflex);
+#endif
+/* ------------------------------- FunctionMode API -------------------------------- */
+#if REFLEX_SUPPORT_CALLBACK
+    void       Reflex_setCallback(Reflex* reflex, Reflex_OnFieldFn fn);
+#endif
+#if REFLEX_SUPPORT_DRIVER
+    void       Reflex_setDriver(Reflex* reflex, const Reflex_ScanDriver* driver);
+#endif
+#if REFLEX_SUPPORT_COMPACT
+    void       Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact);
+#endif
+/* --------------------------------- GetField API ---------------------------------- */
 #if REFLEX_SUPPORT_SCAN_FIELD
     Reflex_GetResult Reflex_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field);
-    Reflex_Result Reflex_scanFieldRaw(Reflex* reflex, Reflex_Field* field, Reflex_OnFieldFn onField);
-    Reflex_Result Reflex_scanField(Reflex* reflex, void* obj, const void* fieldFmt);
+    Reflex_Result    Reflex_scanFieldRaw(Reflex* reflex, Reflex_Field* field, Reflex_OnFieldFn onField);
+    Reflex_Result    Reflex_scanField(Reflex* reflex, void* obj, const void* fieldFmt);
 #endif
-
-Reflex_LenType Reflex_sizeType(const Reflex_TypeParams* fmt);
-
-#if REFLEX_SUPPORT_BREAK_LAYER && REFLEX_SUPPORT_TYPE_COMPLEX
-    void       Reflex_break(Reflex* reflex);
-    void       Reflex_break2D(Reflex* reflex);
-#endif
-
-// ------------------- Utils Functions ------------------
-void Reflex_setCallback(Reflex* reflex, Reflex_OnFieldFn fn);
-void Reflex_setDriver(Reflex* reflex, const Reflex_ScanDriver* driver);
-void Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact);
-
-#if REFLEX_SUPPORT_MAIN_OBJ
-    void* Reflex_getMainVariable(Reflex* reflex);
-#endif
-
+/* ---------------------------------- VarIndex API --------------------------------- */
 #if REFLEX_SUPPORT_VAR_INDEX  
     Reflex_LenType Reflex_getVarIndex(Reflex* reflex);
-    Reflex_LenType Reflex_getVarIndexReal(Reflex* reflex);
 #if REFLEX_SUPPORT_TYPE_COMPLEX
     Reflex_LenType Reflex_getVarOffset(Reflex* reflex);
+    Reflex_LenType Reflex_getVarIndexReal(Reflex* reflex);
+#else
+    #define        Reflex_getVarIndexReal       Reflex_getVarIndex
 #endif
-#endif //REFLEX_SUPPORT_VAR_INDEX
-
+#endif
+/* ----------------------------------- Break API ----------------------------------- */
+#if REFLEX_SUPPORT_BREAK_LAYER && REFLEX_SUPPORT_TYPE_COMPLEX && (REFLEX_SUPPORT_TYPE_ARRAY || REFLEX_SUPPORT_TYPE_ARRAY_2D || REFLEX_SUPPORT_TYPE_POINTER_ARRAY)
+    void           Reflex_break(Reflex* reflex);
+#if REFLEX_SUPPORT_TYPE_ARRAY_2D
+    void           Reflex_break2D(Reflex* reflex);
+#endif
+#endif
+/* ----------------------------------- Field API ----------------------------------- */
 #if REFLEX_SUPPORT_SCAN_FIELD
     void*          Reflex_Field_getVariable(Reflex_Field* reflex);
 #if REFLEX_SUPPORT_MAIN_OBJ
@@ -504,72 +669,15 @@ void Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact);
 #endif
 #if REFLEX_SUPPORT_VAR_INDEX
     Reflex_LenType Reflex_Field_getVarIndex(Reflex_Field* reflex);
-    Reflex_LenType Reflex_Field_getVarIndexReal(Reflex_Field* reflex);
 #if REFLEX_SUPPORT_TYPE_COMPLEX
     Reflex_LenType Reflex_Field_getVarOffset(Reflex_Field* reflex);
+    Reflex_LenType Reflex_Field_getVarIndexReal(Reflex_Field* reflex);
+#else
+    #define        Reflex_Field_getVarIndexReal     Reflex_Field_getVarIndex
 #endif // REFLEX_SUPPORT_TYPE_COMPLEX
 #endif // REFLEX_SUPPORT_VAR_INDEX
 #endif // REFLEX_SUPPORT_SCAN_FIELD
-
-#if REFLEX_SUPPORT_ARGS
-    void  Reflex_setArgs(Reflex* reflex, void* args);
-    void* Reflex_getArgs(Reflex* reflex);
-#endif
-
-#if REFLEX_SUPPORT_BUFFER
-    void  Reflex_setBuffer(Reflex* reflex, void* buf);
-    void* Reflex_getBuffer(Reflex* reflex);
-#endif
-
-// ------------------------ Scan Functions ----------------------
-#if REFLEX_FORMAT_MODE_PARAM
-    Reflex_Result Reflex_Param_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
-#endif
-#if REFLEX_FORMAT_MODE_PRIMARY
-    Reflex_Result Reflex_Primary_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
-#endif
-#if REFLEX_FORMAT_MODE_OFFSET
-    Reflex_Result Reflex_Offset_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
-#endif
-#if REFLEX_SUPPORT_TYPE_COMPLEX
-    Reflex_Result Reflex_Complex_scanRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
-#endif
-// -------------------- Scan Field Functions ----------------
-#if REFLEX_SUPPORT_SCAN_FIELD
-
-#if REFLEX_FORMAT_MODE_PARAM
-    Reflex_GetResult Reflex_Param_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field);
-    Reflex_Result Reflex_Param_scanFieldRaw(Reflex* reflex, void* obj, const void* field, Reflex_OnFieldFn onField);
-#endif
-#if REFLEX_FORMAT_MODE_PRIMARY
-    Reflex_GetResult Reflex_Primary_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field);
-    Reflex_Result Reflex_Primary_scanFieldRaw(Reflex* reflex, void* obj, const void* field, Reflex_OnFieldFn onField);
-#endif
-#if REFLEX_FORMAT_MODE_OFFSET
-    Reflex_GetResult Reflex_Offset_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field);
-    Reflex_Result Reflex_Offset_scanFieldRaw(Reflex* reflex, void* obj, const void* field, Reflex_OnFieldFn onField);
-#endif
-#if REFLEX_SUPPORT_TYPE_COMPLEX
-    Reflex_GetResult Reflex_Complex_getField(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* fieldFmt, Reflex_Field* field);
-    Reflex_Result Reflex_Complex_scanFieldRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* field, Reflex_OnFieldFn onField);
-#endif
-
-#endif // REFLEX_SUPPORT_SCAN_FIELD
-// --------------------- Driver Functions -------------------
-#if REFLEX_FORMAT_MODE_PARAM
-    Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj);
-#endif
-#if REFLEX_FORMAT_MODE_PRIMARY
-    Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj);
-#endif
-#if REFLEX_FORMAT_MODE_OFFSET
-    Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj);
-#endif
-#if REFLEX_SUPPORT_TYPE_COMPLEX
-    Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
-#endif
-
-// ------------------------ Size Functions --------------------
+/* ----------------------------------- Size API ----------------------------------- */
 #if REFLEX_SUPPORT_SIZE_FN
     Reflex_LenType Reflex_size(const Reflex_Schema* schema, Reflex_SizeType type);
 #if REFLEX_FORMAT_MODE_PARAM
@@ -585,9 +693,39 @@ void Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact);
     Reflex_LenType Reflex_Offset_sizePacked(const Reflex_Schema* schema);
 #endif
 #endif // REFLEX_SUPPORT_SIZE_FN
-
-
-// ---------------------------------- Helper Macros ----------------------------------
+/* --------------------------------- LowLevel Scan API ----------------------------------- */
+#if REFLEX_FORMAT_MODE_PARAM
+    Reflex_Result Reflex_Param_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
+    Reflex_Result Reflex_Param_scan(Reflex* reflex, void* obj);
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+    Reflex_Result Reflex_Primary_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
+    Reflex_Result Reflex_Primary_scan(Reflex* reflex, void* obj);
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+    Reflex_Result Reflex_Offset_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn onField);
+    Reflex_Result Reflex_Offset_scan(Reflex* reflex, void* obj);
+#endif
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    Reflex_Result Reflex_Complex_scanRaw(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
+    Reflex_Result Reflex_Complex_scan(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, Reflex_OnFieldFn onField);
+#endif
+/* -------------------------------- LowLevel GetField API ----------------------------------- */
+#if REFLEX_SUPPORT_SCAN_FIELD
+#if REFLEX_FORMAT_MODE_PARAM
+    Reflex_GetResult Reflex_Param_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field);
+#endif
+#if REFLEX_FORMAT_MODE_PRIMARY
+    Reflex_GetResult Reflex_Primary_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field);
+#endif
+#if REFLEX_FORMAT_MODE_OFFSET
+    Reflex_GetResult Reflex_Offset_getField(Reflex* reflex, void* obj, const void* fieldFmt, Reflex_Field* field);
+#endif
+#if REFLEX_SUPPORT_TYPE_COMPLEX
+    Reflex_GetResult Reflex_Complex_getField(Reflex* reflex, void* obj, const Reflex_TypeParams* fmt, const void* fieldFmt, Reflex_Field* field);
+#endif
+#endif // REFLEX_SUPPORT_SCAN_FIELD
+/* -------------------------------- Helper Macros API ----------------------------------- */
 /**
  * @brief This macro help you to fill Reflex_TypeParams struct with default
  * parameters, and also support all possible configurations
@@ -686,15 +824,25 @@ void Reflex_setCompact(Reflex* reflex, const Reflex_ScanFunctions* compact);
  * @param F field name, used for offset schema
  */
 #define REFLEX_TYPE_PARAMS(...)                         __REFLEX_TYPE_PARAMS(__VA_ARGS__)
-
-#define REFLEX_TYPE_PARAMS_LEN(ARR)                     (sizeof(ARR) / sizeof(ARR[0]))
-
-#define REFLEX_SCHEMA_INIT(MODE, FMT)                   {                       \
+/**
+ * @brief This macro allows you to fill schema, also it's support all if configurations
+ * 
+ * @param MODE mode of schema, ex: Reflex_FormatMode_Param
+ * @param FMT name of TypeParams array
+ */
+#define REFLEX_SCHEMA(MODE, FMT)                   {                       \
                                                             .FormatMode = MODE, \
                                                             .CustomFmt = FMT,   \
                                                             .Len = REFLEX_TYPE_PARAMS_LEN(FMT), \
                                                             __REFLEX_SCHEMA_FIELD_FMT_SIZE_INIT(FMT) \
                                                         }
+/**
+ * @brief This macro help you to calculate length of fields format
+ * Note: It also can use for other arrays
+ * 
+ * @param ARR name of array
+ */
+#define REFLEX_TYPE_PARAMS_LEN(ARR)                     (sizeof(ARR) / sizeof(ARR[0]))
 
 // ----------------------------------- Private Helper Macros --------------------------
 #define __REFLEX_TYPE_PARAMS_N_(_0, _1, _2, _3, _4, _5, FMT, ...) REFLEX_TYPE_PARAMS_ ##FMT
