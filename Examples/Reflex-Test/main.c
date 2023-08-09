@@ -28,7 +28,7 @@ typedef struct {
 
 Test_Result Assert_Str(const char* str1, const char* str2, uint16_t line);
 Test_Result Assert_Num(int32_t val1, int32_t val2, uint16_t line);
-Test_Result Assert_Ptr(void* val1, void* val2, uint16_t line);
+Test_Result Assert_Ptr(const void* val1, const void* val2, uint16_t line);
 void Result_print(Test_Result result);
 void printTitle(uint8_t idx, const char* name);
 static const char FOOTER[] CONST_VAR_ATTR = "----------------------------------------------------------------";
@@ -152,12 +152,13 @@ void printTitle(uint8_t idx, const char* name) {
 // define address map globally for prevent stack overflow
 static void* addressMap[120] = {0};
 
-Reflex_Result Reflex_checkAddress(Reflex* reflex, void* value, const Reflex_TypeParams* fmt) {
+Reflex_Result Reflex_checkAddress(Reflex* reflex, void* value, const void* fmt) {
+    const Reflex_TypeParams* fieldFmt = (const Reflex_TypeParams*) fmt;
     void** addrMap = reflex->Args;
 
     if ( addrMap[Reflex_getVarIndex(reflex)] != value
     #if REFLEX_SUPPORT_TYPE_COMPLEX
-        && fmt->Fields.Primary != Reflex_PrimaryType_Complex
+        && fieldFmt->Fields.Primary != Reflex_PrimaryType_Complex
     #endif
     ) {
         PRINTF("Idx: %d, Address not match: %X != %X\r\n",
@@ -187,7 +188,7 @@ static const Reflex_TypeParams Model1_FMT[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4, 0),
     REFLEX_TYPE_PARAMS(Reflex_Type_Array2D_Char, 4, 32),
 };
-static const Reflex_Schema Model1_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model1_FMT);
+static const Reflex_Schema Model1_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Param, Model1_FMT);
 
 typedef struct {
     int32_t     V0;
@@ -201,7 +202,7 @@ static const Reflex_TypeParams Model2_FMT[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8, 0),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float),
 };
-static const Reflex_Schema Model2_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model2_FMT);
+static const Reflex_Schema Model2_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Param, Model2_FMT);
 
 Test_Result Test_Param(void) {
     Reflex reflex = {0};
@@ -245,7 +246,7 @@ static const uint8_t PrimaryTemp1_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt8,
     Reflex_Type_Unknown,
 };
-static const Reflex_Schema PrimaryTemp1_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Primary, PrimaryTemp1_FMT);
+static const Reflex_Schema PrimaryTemp1_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryTemp1_FMT);
 
 typedef struct {
     uint16_t    V0;
@@ -258,7 +259,7 @@ static const uint8_t PrimaryTemp2_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt8,
     Reflex_Type_Unknown,
 };
-static const Reflex_Schema PrimaryTemp2_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Primary, PrimaryTemp2_FMT);
+static const Reflex_Schema PrimaryTemp2_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryTemp2_FMT);
 
 typedef struct {
     uint16_t    V0;
@@ -273,7 +274,7 @@ static const uint8_t PrimaryTemp3_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt8,
     Reflex_Type_Unknown,
 };
-static const Reflex_Schema PrimaryTemp3_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Primary, PrimaryTemp3_FMT);
+static const Reflex_Schema PrimaryTemp3_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryTemp3_FMT);
 
 typedef struct {
     uint8_t         V0;
@@ -304,7 +305,7 @@ static const uint8_t PrimaryTemp4_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt32,
     Reflex_Type_Unknown,
 };
-static const Reflex_Schema PrimaryTemp4_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Primary, PrimaryTemp4_FMT);
+static const Reflex_Schema PrimaryTemp4_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryTemp4_FMT);
 
 Test_Result Test_Primary(void) {
     Reflex reflex = {0};
@@ -368,7 +369,7 @@ static const Reflex_TypeParams Model1_FMT_OFFSET[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4, 0, Model1, V3),
     REFLEX_TYPE_PARAMS(Reflex_Type_Array2D_Char, 4, 32, Model1, V4),
 };
-static const Reflex_Schema Model1_SCHEMA_OFFSET CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model1_FMT_OFFSET);
+static const Reflex_Schema Model1_SCHEMA_OFFSET CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Param, Model1_FMT_OFFSET);
 
 static const Reflex_TypeParams Model2_FMT_OFFSET[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Int32, 0, 0, Model2, V0),
@@ -376,7 +377,7 @@ static const Reflex_TypeParams Model2_FMT_OFFSET[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8, 0, Model2, V2),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float, 0, 0, Model2, V3),
 };
-static const Reflex_Schema Model2_SCHEMA_OFFSET CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model2_FMT_OFFSET);
+static const Reflex_Schema Model2_SCHEMA_OFFSET CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Param, Model2_FMT_OFFSET);
 
 
 Test_Result Test_Offset(void) {
@@ -431,7 +432,7 @@ const CustomTypeParams1 Model1_CFMT[] = {
     REFLEX_TYPE_PARAMS(Reflex_Type_PointerArray_Char, 4),
     REFLEX_TYPE_PARAMS(Reflex_Type_Array2D_Char, 4, 32),
 };
-static const Reflex_Schema Model1_CSCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model1_CFMT);
+static const Reflex_Schema Model1_CSCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Param, Model1_CFMT);
 
 const CustomTypeParams2 Model2_CFMT[] = {
     { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Int32), },
@@ -439,7 +440,7 @@ const CustomTypeParams2 Model2_CFMT[] = {
     { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8), },
     { .TypeParams = REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float), },
 };
-static const Reflex_Schema Model2_CSCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, Model2_CFMT);
+static const Reflex_Schema Model2_CSCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Param, Model2_CFMT);
 
 Test_Result Test_CustomTypeParams(void) {
     Reflex reflex = {0};
@@ -480,7 +481,7 @@ static const Reflex_TypeParams CModel1_FMT[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Complex, 0, 0, &Model1_SCHEMA),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Complex, 0, 0, &Model2_SCHEMA),
 };
-static const Reflex_Schema CModel1_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, CModel1_FMT);
+static const Reflex_Schema CModel1_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Param, CModel1_FMT);
 
 typedef struct {
     float       V0;
@@ -498,7 +499,7 @@ static const Reflex_TypeParams CModel2_FMT[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Int16),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_UInt8),
 };
-static const Reflex_Schema CModel2_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, CModel2_FMT);
+static const Reflex_Schema CModel2_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Param, CModel2_FMT);
 
 typedef struct {
     char            V0;
@@ -530,7 +531,7 @@ static const Reflex_TypeParams CModel3_FMT[] CONST_VAR_ATTR = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Array_Complex, 2, 0, &PrimaryTemp4_SCHEMA),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Complex, 0, 0, &CModel2_SCHEMA),
 };
-static const Reflex_Schema CModel3_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, CModel3_FMT);
+static const Reflex_Schema CModel3_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Param, CModel3_FMT);
 
 
 
@@ -865,7 +866,7 @@ Test_Result Test_ComplexType_GetField(void) {
     Assert_getFieldByIndex(temp2.V2, 2);
     Assert_getFieldByIndex(temp2.V2, 3);
     Assert_getFieldByIndex(temp2.V2, 4);
-    
+
     // Find in temp3
     reflex.Schema = &CModel3_SCHEMA;
     Assert_getFieldByIndex(temp3, 0);
@@ -932,7 +933,7 @@ Test_Result Assert_Num(int32_t val1, int32_t val2, uint16_t line) {
         return 0;
     }
 }
-Test_Result Assert_Ptr(void* val1, void* val2, uint16_t line) {
+Test_Result Assert_Ptr(const void* val1, const void* val2, uint16_t line) {
     if (val1 != val2) {
         PRINTF("Assert Ptr: expected %X, found %X, Line: %d\r\n", val2, val1, line);
         return (Test_Result) line << 16;
