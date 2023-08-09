@@ -82,7 +82,7 @@ const Reflex_TypeParams productParams[] = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 50),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float),
 };
-const Reflex_Schema productSchema = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, productParams);
+const Reflex_Schema productSchema = REFLEX_SCHEMA(Reflex_FormatMode_Param, productParams);
 
 Reflex_Result Reflex_onFiled(Reflex* reflex, void* value, const Reflex_TypeParams* fmt) {
     // Do whatever you want to do with your fields, for example simple serialize
