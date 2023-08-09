@@ -120,7 +120,7 @@ const uint8_t PrimaryModelA_FMT[] = {
     Reflex_Type_Primary_UInt8,
     Reflex_Type_Unknown,
 };
-const Reflex_Schema PrimaryModelA_SCHEMA = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Primary, PrimaryModelA_FMT);
+const Reflex_Schema PrimaryModelA_SCHEMA = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryModelA_FMT);
 typedef struct {
     int32_t     Id;
     char        Name[32];
@@ -134,7 +134,7 @@ const Reflex_TypeParams ModelA_FMT[] = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Array_UInt8, 8),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float),
 };
-const Reflex_Schema ModelA_SCHEMA = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, ModelA_FMT);
+const Reflex_Schema ModelA_SCHEMA = REFLEX_SCHEMA(Reflex_FormatMode_Param, ModelA_FMT);
 typedef struct {
     uint8_t  A;
     char     Array[20];
@@ -147,7 +147,7 @@ const Reflex_TypeParams ModelB_FMT[] = {
     REFLEX_TYPE_PARAMS(Reflex_Type_Array_Char, 20),
     REFLEX_TYPE_PARAMS(Reflex_Type_Primary_Float, 8),
 };
-const Reflex_Schema ModelB_SCHEMA = REFLEX_SCHEMA_INIT(Reflex_FormatMode_Param, ModelB_FMT);
+const Reflex_Schema ModelB_SCHEMA = REFLEX_SCHEMA(Reflex_FormatMode_Param, ModelB_FMT);
 
 
 void serializeModel(StrBuf* buf, const Reflex_Schema* schema, void* obj);
