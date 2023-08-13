@@ -425,7 +425,6 @@ typedef Reflex_Result (*Reflex_OnFieldFn)(Reflex* reflex, void* obj, const void*
 typedef union {
     Reflex_OnFieldFn      fn[Reflex_PrimaryType_Length];
     struct {
-        Reflex_OnFieldFn  fnUnknown;
         Reflex_OnFieldFn  fnChar;
         Reflex_OnFieldFn  fnUInt8;
         Reflex_OnFieldFn  fnInt8;
