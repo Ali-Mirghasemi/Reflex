@@ -258,7 +258,6 @@ typedef enum {
  * @brief Supported primary types
  */
 typedef enum {
-    Reflex_PrimaryType_Unknown,
     Reflex_PrimaryType_Char,
     Reflex_PrimaryType_UInt8,
     Reflex_PrimaryType_Int8,
@@ -287,7 +286,6 @@ typedef enum {
  */
 typedef enum {
     // ------------- Primary Types --------------
-    __REFLEX_TYPE(Primary, Unknown),
     __REFLEX_TYPE(Primary, Char),
     __REFLEX_TYPE(Primary, UInt8),
     __REFLEX_TYPE(Primary, Int8),
@@ -308,7 +306,6 @@ typedef enum {
 #endif
     // ------------- Pointer Types --------------
 #if REFLEX_SUPPORT_TYPE_POINTER
-    __REFLEX_TYPE(Pointer, Unknown),
     __REFLEX_TYPE(Pointer, Char),
     __REFLEX_TYPE(Pointer, UInt8),
     __REFLEX_TYPE(Pointer, Int8),
@@ -330,7 +327,6 @@ typedef enum {
 #endif // REFLEX_SUPPORT_TYPE_POINTER
     // ------------- Array Types --------------
 #if REFLEX_SUPPORT_TYPE_ARRAY
-    __REFLEX_TYPE(Array, Unknown),
     __REFLEX_TYPE(Array, Char),
     __REFLEX_TYPE(Array, UInt8),
     __REFLEX_TYPE(Array, Int8),
@@ -352,7 +348,6 @@ typedef enum {
 #endif // REFLEX_SUPPORT_TYPE_ARRAY
     // ------------- PointerArray Types --------------
 #if REFLEX_SUPPORT_TYPE_POINTER_ARRAY
-    __REFLEX_TYPE(PointerArray, Unknown),
     __REFLEX_TYPE(PointerArray, Char),
     __REFLEX_TYPE(PointerArray, UInt8),
     __REFLEX_TYPE(PointerArray, Int8),
@@ -374,7 +369,6 @@ typedef enum {
 #endif // REFLEX_SUPPORT_TYPE_POINTER_ARRAY
     // ------------- Array2D Types --------------
 #if REFLEX_SUPPORT_TYPE_ARRAY_2D
-    __REFLEX_TYPE(Array2D, Unknown),
     __REFLEX_TYPE(Array2D, Char),
     __REFLEX_TYPE(Array2D, UInt8),
     __REFLEX_TYPE(Array2D, Int8),
@@ -395,10 +389,6 @@ typedef enum {
 #endif
 #endif // REFLEX_SUPPORT_TYPE_ARRAY_2D
 } Reflex_Type;
-/**
- * @brief Reflex type unknown 
- */
-#define Reflex_Type_Unknown          Reflex_Type_Primary_Unknown
 /**
  * @brief Bit mask for primary part
  */

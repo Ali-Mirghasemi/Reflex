@@ -98,7 +98,6 @@ typedef struct {
 /* ---------------------------------------- Private Variables ------------------------------------- */
 // Store sizeof all primary types for accessing faster
 static const uint8_t PRIMARY_TYPE_SIZE[] = {
-    1, // sizeof(void),
     sizeof(char),
     sizeof(uint8_t),
     sizeof(int8_t),
@@ -728,9 +727,10 @@ Reflex_LenType Reflex_Primary_sizeNormal(const Reflex_Schema* schema) {
     uint8_t* pobj = (uint8_t*) 0;
     const Reflex_Type_Helper* helper;
     const uint8_t* pfmt = schema->PrimaryFmt;
+    Reflex_LenType len = schema->Len;
     Reflex_LenType objsize = 0;
 
-    while (*pfmt != Reflex_Type_Unknown) {
+    while (len-- > 0) {
         fmt.Type = *pfmt++;
         helper = &REFLEX_HELPER[fmt.Fields.Category];
         if (objsize < PRIMARY_TYPE_SIZE[fmt.Type]) {
@@ -757,8 +757,9 @@ Reflex_LenType Reflex_Primary_sizePacked(const Reflex_Schema* schema) {
     uint8_t* pobj = (uint8_t*) 0;
     const Reflex_Type_Helper* helper;
     const uint8_t* pfmt = schema->PrimaryFmt;
+    Reflex_LenType len = schema->Len;
 
-    while (*pfmt != Reflex_Type_Unknown) {
+    while (len-- > 0) {
         fmt.Type = *pfmt++;
         helper = &REFLEX_HELPER[fmt.Fields.Category];
         // move pobj
@@ -891,13 +892,14 @@ Reflex_Result Reflex_Primary_scanRaw(Reflex* reflex, void* obj, Reflex_OnFieldFn
     Reflex_Result result = REFLEX_OK;
     Reflex_TypeParams fmt = {0};
     uint8_t* pobj = (uint8_t*) obj;
+    Reflex_LenType len = reflex->Schema->Len;
     const Reflex_Type_Helper* helper;
     const uint8_t* pfmt = reflex->Schema->PrimaryFmt;
     __biggestField_init_NoTemp();
     __resetVarIndex(reflex);
     __initMainObj(reflex, obj);
 
-    while (*pfmt != Reflex_Type_Unknown && result == REFLEX_OK) {
+    while (len-- > 0 && result == REFLEX_OK) {
         fmt.Type = *pfmt++;
         helper = &REFLEX_HELPER[fmt.Fields.Category];
         // check align
@@ -1077,11 +1079,12 @@ Reflex_GetResult Reflex_Primary_getField(Reflex* reflex, void* obj, const void* 
     uint8_t* pobj = (uint8_t*) obj;
     const Reflex_Type_Helper* helper;
     const uint8_t* pfmt = reflex->Schema->PrimaryFmt;
+    Reflex_LenType len = reflex->Schema->Len;
     __biggestField_init_NoTemp();
     __resetVarIndex(reflex);
     __initMainObj(reflex, obj);
 
-    while (*pfmt != Reflex_Type_Unknown) {
+    while (len-- > 0) {
         fmt.Type = *pfmt;
         helper = &REFLEX_HELPER[fmt.Fields.Category];
         // check align
