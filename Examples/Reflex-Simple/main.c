@@ -118,7 +118,6 @@ const uint8_t PrimaryModelA_FMT[] = {
     Reflex_Type_Primary_Int32,
     Reflex_Type_Primary_Float,
     Reflex_Type_Primary_UInt8,
-    Reflex_Type_Unknown,
 };
 const Reflex_Schema PrimaryModelA_SCHEMA = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryModelA_FMT);
 typedef struct {
