@@ -244,7 +244,6 @@ static const uint8_t PrimaryTemp1_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt32,
     Reflex_Type_Primary_Float,
     Reflex_Type_Primary_UInt8,
-    Reflex_Type_Unknown,
 };
 static const Reflex_Schema PrimaryTemp1_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryTemp1_FMT);
 
@@ -257,7 +256,6 @@ static const uint8_t PrimaryTemp2_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt16,
     Reflex_Type_Primary_Float,
     Reflex_Type_Primary_UInt8,
-    Reflex_Type_Unknown,
 };
 static const Reflex_Schema PrimaryTemp2_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryTemp2_FMT);
 
@@ -272,7 +270,6 @@ static const uint8_t PrimaryTemp3_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_Float,
     Reflex_Type_Primary_UInt8,
     Reflex_Type_Primary_UInt8,
-    Reflex_Type_Unknown,
 };
 static const Reflex_Schema PrimaryTemp3_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryTemp3_FMT);
 
@@ -303,7 +300,6 @@ static const uint8_t PrimaryTemp4_FMT[] CONST_VAR_ATTR = {
     Reflex_Type_Primary_UInt8,
     Reflex_Type_Primary_UInt16,
     Reflex_Type_Primary_UInt32,
-    Reflex_Type_Unknown,
 };
 static const Reflex_Schema PrimaryTemp4_SCHEMA CONST_VAR_ATTR = REFLEX_SCHEMA(Reflex_FormatMode_Primary, PrimaryTemp4_FMT);
 
